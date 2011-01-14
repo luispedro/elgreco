@@ -1,4 +1,4 @@
-CXXOPTS = -O3
+CXXOPTS = -O3 -g
 SOURCES = \
 	load.cpp \
 	lda.cpp \
@@ -7,3 +7,4 @@ SOURCES = \
 
 lda: $(SOURCES)
 	g++ $(CXXOPTS) -o $@ $^
+
