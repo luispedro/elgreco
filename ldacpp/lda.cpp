@@ -7,13 +7,13 @@
 int lda(const lda_parameters& params, const lda_data& data, lda_state* state) {
     random_source R = params.R;
     int* z = state->z;
-    for (int m = 0; m != data.nr_docs; ++m) {
+    for (int m = 0; m != data.nr_docs(); ++m) {
         for (int k = 0; k != params.nr_topics; ++k) {
             state->topic_count[m][k] = 0;
         }
         state->topic_sum[m] = 0;
-        for (int j = 0; j != data.lengths[m]; ++j) {
-            const int t = data.words[m][j];
+        for (int j = 0; j != data.size(m); ++j) {
+            const int t = data(m,j);
             const int k = int(R.uniform01() * params.nr_topics + .5);
             *z++ = k;
             ++state->topic_count[m][k];
@@ -26,10 +26,10 @@ int lda(const lda_parameters& params, const lda_data& data, lda_state* state) {
     p.resize(params.nr_topics+1);
     for (int i = 0; i != params.nr_iterations; ++i) {
         z = state->z;
-        for (int m = 0; m != data.nr_docs; ++m) {
-            for (int j = 0; j != data.lengths[m]; ++j) {
+        for (int m = 0; m != data.nr_docs(); ++m) {
+            for (int j = 0; j != data.size(m); ++j) {
                 const int ok = *z;
-                const int t = data.words[m][j];
+                const int t = data(m, j);
                 --state->topic_count[m][ok];
                 --state->topic_sum[m];
                 --state->topic[ok];

@@ -1,5 +1,8 @@
 #ifndef LDA_H_INCLUDE_GUARD_LPC_ELGRECO_
 #define LDA_H_INCLUDE_GUARD_LPC_ELGRECO_
+
+#include <vector>
+
 typedef double float_t;
 
 struct random_source {
@@ -15,9 +18,10 @@ struct lda_parameters {
 };
 
 struct lda_data {
-    const int nr_docs;
-    const int* lengths;
-    const int** words;
+    int nr_docs() const { return docs.size(); }
+    int size(int d) const { return docs[d].size(); }
+    int operator()(int d, int w) const { return docs[d][w]; }
+    std::vector< std::vector<int> > docs;
 };
 
 struct lda_state {
