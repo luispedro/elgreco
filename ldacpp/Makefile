@@ -1,5 +1,6 @@
 CXXOPTS = -O3
 SOURCES = \
+	load.cpp \
 	lda.cpp \
 	main.cpp
 		
