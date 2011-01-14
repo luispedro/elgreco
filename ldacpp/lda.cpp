@@ -76,7 +76,7 @@ lda_state lda(const lda_parameters& params, const lda_data& data) {
                 }
                 p[params.nr_topics] = p[params.nr_topics-1]+1.;
                 const double s = total_p * R.uniform01();
-                int k;
+                int k = 0;
                 while (k < params.nr_topics && s < p[k + 1]) ++k;
 
                 *z++ = k;
