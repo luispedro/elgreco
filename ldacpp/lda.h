@@ -30,11 +30,11 @@ struct lda_data {
         int nr_docs() const { return docs.size(); }
         int size(int d) const { return docs[d].size(); }
         int operator()(int d, int w) const { return docs[d][w]; }
-        int max_term() const { return max_term_; }
+        int nr_terms() const { return nr_terms_; }
     private:
         friend lda_data load(std::istream &in);
         std::vector< std::vector<int> > docs;
-        int max_term_;
+        int nr_terms_;
 };
 
 struct lda_state {

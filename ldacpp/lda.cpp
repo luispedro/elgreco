@@ -1,13 +1,11 @@
 #include "lda.h"
 #include <vector>
 
-
-
 lda_state new_lda_state(const lda_parameters& params, const lda_data& data) {
     const int nr_docs = data.nr_docs();
     const int nr_words = data.nr_words();
     const int nr_topics = params.nr_topics;
-    const int max_term = data.max_term();
+    const int nr_terms = data.nr_terms();
 
     lda_state res;
     res.z = new int[nr_words];
@@ -17,11 +15,12 @@ lda_state new_lda_state(const lda_parameters& params, const lda_data& data) {
     for (int m = 1; m != nr_docs; ++m) {
         res.topic_count[m] = res.topic_count[m-1]+nr_topics;
     }
-    res.topic_term = new int*[max_term];
-    res.topic_term[0] = new int[max_term*nr_topics];
-    for (int t = 1; t != max_term; ++t) {
+    res.topic_term = new int*[nr_terms];
+    res.topic_term[0] = new int[nr_terms*nr_topics];
+    for (int t = 1; t != nr_terms; ++t) {
         res.topic_term[t] = res.topic_term[t-1] + nr_topics;
     }
+    res.topic_sum = new int[nr_docs];
     res.alpha = new float_t[nr_topics];
     res.beta = new float_t[nr_topics];
     for (int k = 0; k != nr_topics; ++k) {
