@@ -4,13 +4,12 @@
 #include <vector>
 #include <istream>
 
-typedef double float_t;
+#include "MersenneTwister.h"
 
-struct random_source {
-    float_t uniform01() {
-        return .1;
-    }
-};
+namespace lda {
+
+typedef double float_t;
+typedef MTRand random_source;
 
 struct lda_parameters {
     int nr_topics;
@@ -57,5 +56,7 @@ struct lda_state {
 };
 
 lda_state lda(const lda_parameters& params, const lda_data& data);
+lda_data load(std::istream& in);
+}
 
 #endif // LDA_H_INCLUDE_GUARD_LPC_ELGRECO_

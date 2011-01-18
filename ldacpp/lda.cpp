@@ -1,13 +1,13 @@
 #include "lda.h"
 #include <vector>
 
-lda_state new_lda_state(const lda_parameters& params, const lda_data& data) {
+lda::lda_state new_lda_state(const lda::lda_parameters& params, const lda::lda_data& data) {
     const int nr_docs = data.nr_docs();
     const int nr_words = data.nr_words();
     const int nr_topics = params.nr_topics;
     const int nr_terms = data.nr_terms();
 
-    lda_state res;
+    lda::lda_state res;
     res.z = new int[nr_words];
     res.topic = new int[nr_topics];
     res.topic_count = new int*[nr_docs];
@@ -21,8 +21,8 @@ lda_state new_lda_state(const lda_parameters& params, const lda_data& data) {
         res.topic_term[t] = res.topic_term[t-1] + nr_topics;
     }
     res.topic_sum = new int[nr_docs];
-    res.alpha = new float_t[nr_topics];
-    res.beta = new float_t[nr_topics];
+    res.alpha = new lda::float_t[nr_topics];
+    res.beta = new lda::float_t[nr_topics];
     for (int k = 0; k != nr_topics; ++k) {
         res.alpha[k] = params.alpha;
         res.beta[k] = params.beta;
@@ -34,9 +34,9 @@ lda_state new_lda_state(const lda_parameters& params, const lda_data& data) {
 
 // Implementation based on the description in "Parameter estimation for text
 // analysis" by Gregor Heinrich
-lda_state lda(const lda_parameters& params, const lda_data& data) {
-    lda_state state = new_lda_state(params, data);
-    random_source R = params.R;
+lda::lda_state lda::lda(const lda::lda_parameters& params, const lda::lda_data& data) {
+    lda::lda_state state = new_lda_state(params, data);
+    lda::random_source R = params.R;
     int* z = state.z;
     for (int m = 0; m != data.nr_docs(); ++m) {
         for (int k = 0; k != params.nr_topics; ++k) {
@@ -45,7 +45,7 @@ lda_state lda(const lda_parameters& params, const lda_data& data) {
         state.topic_sum[m] = 0;
         for (int j = 0; j != data.size(m); ++j) {
             const int t = data(m,j);
-            const int k = int(R.uniform01() * params.nr_topics + .5);
+            const int k = R.randInt(params.nr_topics - 1);
             *z++ = k;
             ++state.topic_count[m][k];
             ++state.topic_sum[m];
@@ -75,7 +75,7 @@ lda_state lda(const lda_parameters& params, const lda_data& data) {
                     if (k > 0) p[k] += p[k-1];
                 }
                 p[params.nr_topics] = p[params.nr_topics-1]+1.;
-                const double s = total_p * R.uniform01();
+                const double s = total_p * R.rand();
                 int k = 0;
                 while (k < params.nr_topics && s < p[k + 1]) ++k;
 

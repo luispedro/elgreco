@@ -2,9 +2,9 @@
 #include <iostream>
 
 #include "lda.h"
-#include "load.h"
 
 int main(int argc, char** argv) {
+    using namespace lda;
     if (argc < 2) {
         std::cerr << "Wrong number of arguments." << std::endl;
         return 1;
@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
     params.nr_iterations = 1000;
     params.alpha = .1;
     params.beta = .1;
-    lda_state final_state = lda(params, data);
+    lda_state final_state = lda::lda(params, data);
     return 0;
 }
 
