@@ -8,12 +8,15 @@
 int main(int argc, char** argv) {
     using namespace lda;
     namespace po = boost::program_options;
-    po::options_description desc("Allowed options");
-    desc.add_options()
-        ("help", "produce help message")
+    po::options_description req("Required Parameters");
+    po::options_description opts("Options");
+    req.add_options()
         ("input-file", po::value<std::string>(), "Input data file")
         ("k", po::value<unsigned>(), "Nr of topics")
         ("iters", po::value<unsigned>(), "Nr of iterations")
+    ;
+    opts.add_options()
+        ("help", "produce help message")
         ("alpha", po::value<float>()->default_value(.1), "Alpha value")
         ("beta", po::value<float>()->default_value(.1), "beta value")
     ;
@@ -23,11 +26,18 @@ int main(int argc, char** argv) {
     po::variables_map vm;
     po::store(
         po::command_line_parser(argc, argv)
-                .options(desc)
+                .options(req)
+                .options(opts)
                 .positional(p)
                 .run(),
         vm);
     po::notify(vm);
+
+    if (vm.count("help") || !vm.count("input-file") || !vm.count("k") || !vm.count("iters")) {
+        std::cout << req << opts << std::endl;
+        if (vm.count("help")) return 0;
+        return 1;
+    }
 
     std::ifstream fin(vm["input-file"].as<std::string>().c_str());
     lda_data data = load(fin);
