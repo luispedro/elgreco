@@ -6,5 +6,5 @@ SOURCES = \
 		
 
 lda: $(SOURCES)
-	g++ $(CXXOPTS) -o $@ $^
+	g++ $(CXXOPTS) -o $@ $^ -lboost_program_options
 
