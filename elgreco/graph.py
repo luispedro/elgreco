@@ -41,7 +41,7 @@ class Node(object):
         -------
         logp : float
         '''
-        return self.model.logP(self.value, [p.value for p in self.parents])
+        return self.model.logP(self.value, self.parents)
 
     def sample1(self):
         '''
@@ -51,7 +51,7 @@ class Node(object):
         children.
 
         '''
-        self.value = self.model.sample1(map(lambda n:n.value, parents), map(lambda n: n.value, children))
+        self.value = self.model.sample1(self, self.parents, self.children)
 
     def __unicode__(self):
         return 'N[%s]' % self.name

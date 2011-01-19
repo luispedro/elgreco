@@ -1,6 +1,6 @@
 import numpy as np
 from elgreco.graph import Graph, Node
-
+import elgreco.models
 def test_add_edge():
     m = None
     g = Graph()
@@ -20,3 +20,9 @@ def test_add_edge():
 
     assert c1 in n.children
     assert n in c1.parents
+
+def test_model_graph():
+    p = Node(elgreco.models.ConstantModel((.3, .7)))
+    p.sample1()
+    assert p.value == (.3, .7)
+
