@@ -51,7 +51,7 @@ class Node(object):
         children.
 
         '''
-        self.value = self.model.sample1(self, map(lambda n:n.value, parents), map(lambda n: n.value, children))
+        self.value = self.model.sample1(map(lambda n:n.value, parents), map(lambda n: n.value, children))
 
     def __unicode__(self):
         return 'N[%s]' % self.name
