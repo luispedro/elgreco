@@ -52,6 +52,7 @@ class Node(object):
 
         '''
         self.value = self.model.sample1(self, self.parents, self.children)
+        return self.value
 
     def __unicode__(self):
         return 'N[%s]' % self.name

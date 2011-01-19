@@ -61,10 +61,10 @@ class CategoricalModel(FiniteUniverseModel):
     def __init__(self, k):
         FiniteUniverseModel.__init__(self, np.arange(k))
 
-    def logP(self, n, parents):
+    def logP(self, value, parents):
         (parents,) = parents
         alpha = parents.value
-        return np.log(alpha[n.value], alpha.sum())
+        return np.log(alpha[value]/np.sum(alpha))
 
 class BinomialModel(CategoricalModel):
     def __init__(self):
