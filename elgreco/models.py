@@ -18,10 +18,16 @@ class DirichletModel(object):
 
     def sample1(self, _, parents, children):
         (parents,) = parents
-        children_stats = np.sum([c.value for c in children], axis=0)
-        children_stats += parents.value
-        gammas = np.array(map(stats.gamma.rvs, children_stats))
-        V = stats.gamma.rvs(children_stats.sum())
+        alphas = parents.value.copy()
+        for c in children:
+            if isinstance(c.model, MultinomialModel):
+                alphas += c.value
+            elif isinstance(c.model, CategoricalModel):
+                alphas[c.value] += 1
+            else:
+                raise ValueError('elgreco.models.DirichletModel: Cannot handle this type')
+        gammas = np.array(map(stats.gamma.rvs, alphas))
+        V = stats.gamma.rvs(alphas.sum())
         return gammas/V
 
 class ConstantModel(object):
@@ -69,4 +75,8 @@ class CategoricalModel(FiniteUniverseModel):
 class BinomialModel(CategoricalModel):
     def __init__(self):
         CategoricalModel.__init__(self, 2)
+
+class MultinomialModel(object):
+    def __init__(self):
+        pass
 
