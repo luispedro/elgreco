@@ -59,8 +59,11 @@ class FiniteUniverseModel(object):
         ps /= ps.sum()
         r = np.random.random()
         v = 0
-        while (v+1) < len(self.universe) and r < ps[v+1]:
+        ps[-1] += 1.
+        pc = ps[0]
+        while pc < r:
             v += 1
+            pc += ps[v]
         return self.universe[v]
 
 class CategoricalModel(FiniteUniverseModel):
