@@ -5,6 +5,7 @@ import numpy as np
 class SimpleNode(object):
     def __init__(self, value):
         self.value = value
+        self.model = models.MultinomialModel()
 
 def test_constant_model():
     for v in (3, 2.22, -1):
