@@ -30,6 +30,9 @@ class DirichletModel(object):
         V = stats.gamma.rvs(alphas.sum())
         return gammas/V
 
+    def sampleforward(self, _n, parents):
+        return self.sample1(_n, parents, [])
+
 class ConstantModel(object):
     def __init__(self, value):
         self.value = value
@@ -39,6 +42,9 @@ class ConstantModel(object):
         return float("-Inf")
 
     def sample1(self, _n, _p, _c):
+        return self.value
+
+    def sampleforward(self, _n, _p):
         return self.value
 
 class FiniteUniverseModel(object):
@@ -65,6 +71,9 @@ class FiniteUniverseModel(object):
             v += 1
             pc += ps[v]
         return self.universe[v]
+
+    def sampleforward(self, n, parents):
+        return self.sample1(n, parents, [])
 
 class CategoricalModel(FiniteUniverseModel):
     def __init__(self, k):

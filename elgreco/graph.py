@@ -45,13 +45,23 @@ class Node(object):
 
     def sample1(self):
         '''
-        n.sample1()
+        value = n.sample1()
 
         Sample the node value given the current value of the parents and the
         children.
 
         '''
         self.value = self.model.sample1(self, self.parents, self.children)
+        return self.value
+
+    def sampleforward(self):
+        '''
+        value = n.sampleforward()
+
+        Sample the value given the value of its parents (independent of the
+        children!).
+        '''
+        self.value = self.model.sampleforward(self, self.parents)
         return self.value
 
     def __unicode__(self):
