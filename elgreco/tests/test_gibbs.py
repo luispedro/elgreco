@@ -81,3 +81,17 @@ def test_sampleforward_categorical():
         is1 += child.value
     assert 600 < is1 < 800
 
+def test_sampleforward_dirichlet_categorical():
+    np.random.seed(22)
+    parent = Node(models.ConstantModel(np.array([.3,.7])))
+    child = Node(models.DirichletModel())
+    grandchild = Node(models.CategoricalModel(2))
+    g = Graph()
+    g.add_edge(parent, child)
+    g.add_edge(child, grandchild)
+    is1 = 0
+    for i in xrange(1000):
+        gibbs.sampleforward(g)
+        is1 += grandchild.value
+    assert 600 < is1 < 800
+
