@@ -1,4 +1,5 @@
 import elgreco.models
+from elgreco import models
 from elgreco.graph import Graph, Node
 from elgreco import gibbs
 import numpy as np
@@ -59,3 +60,9 @@ def test_gibbs():
     assert counts.max() < 280
 
 
+def test_sampleforward_constant():
+    g = Graph()
+    beta = Node(models.ConstantModel(.1))
+    g.vertices.append(beta)
+    gibbs.sampleforward(g)
+    assert hasattr(beta, 'value')
