@@ -95,3 +95,14 @@ def test_sampleforward_dirichlet_categorical():
         is1 += grandchild.value
     assert 600 < is1 < 800
 
+def test_sampleforward_long():
+    alpha = Node(models.ConstantModel(np.zeros(3)+.1))
+    dir = Node(models.DirichletModel())
+    z = Node(models.CategoricalModel(3))
+    w = Node(models.ConstantModel(2))
+    g = Graph()
+    g.add_edge(alpha, dir)
+    g.add_edge(dir,z)
+    g.add_edge(z,w)
+    gibbs.sampleforward(g)
+

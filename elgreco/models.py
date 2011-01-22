@@ -33,19 +33,28 @@ class DirichletModel(object):
     def sampleforward(self, _n, parents):
         return self.sample1(_n, parents, [])
 
-class ConstantModel(object):
-    def __init__(self, value):
-        self.value = value
+    def __str__(self):
+        return 'DirichletModel()'
+    __repr__ = __str__
 
-    def logP(self, value, _):
-        if value == self.value: return 0.
-        return float("-Inf")
+class ConstantModel(object):
+    def __init__(self, value, base=None):
+        self.value = value
+        self.base = base
+
+    def logP(self, value, parents):
+        if value != self.value: return float('-Inf')
+        if self.base is None: return 0.
+        return self.base.logP(value, parents)
 
     def sample1(self, _n, _p, _c):
         return self.value
 
     def sampleforward(self, _n, _p):
         return self.value
+    def __str__(self):
+        return 'ConstantModel(%s)' % self.value
+    __repr__ = __str__
 
 class FiniteUniverseModel(object):
     def __init__(self, universe):
@@ -56,7 +65,7 @@ class FiniteUniverseModel(object):
         for v in self.universe:
             n.value = v
             cur = n.logP()
-            for c in n.children:
+            for c in children:
                 cur += c.logP()
             ps.append(cur)
         ps = np.array(ps)
@@ -84,9 +93,16 @@ class CategoricalModel(FiniteUniverseModel):
         alpha = parents.value
         return np.log(alpha[value]/np.sum(alpha))
 
+    def __str__(self):
+        return 'CategoricalModel(%s)' % len(self.universe)
+    __repr__ = __str__
+
 class BinomialModel(CategoricalModel):
     def __init__(self):
         CategoricalModel.__init__(self, 2)
+    def __str__(self):
+        return 'BinomialModel()'
+    __repr__ = __str__
 
 class MultinomialModel(object):
     def __init__(self):
