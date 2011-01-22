@@ -94,6 +94,8 @@ class Graph(object):
         '''
         n0.children.append(n1)
         n1.parents.append(n0)
+        if n0 not in self.vertices: self.vertices.append(n0)
+        if n1 not in self.vertices: self.vertices.append(n1)
 
     def roots(self):
         '''
