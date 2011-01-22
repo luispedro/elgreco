@@ -66,3 +66,18 @@ def test_sampleforward_constant():
     g.vertices.append(beta)
     gibbs.sampleforward(g)
     assert hasattr(beta, 'value')
+
+
+
+def test_sampleforward_categorical():
+    np.random.seed(22)
+    parent = Node(models.ConstantModel(np.array([.3,.7])))
+    child = Node(models.CategoricalModel(2))
+    g = Graph()
+    g.add_edge(parent, child)
+    is1 = 0
+    for i in xrange(1000):
+        gibbs.sampleforward(g)
+        is1 += child.value
+    assert 600 < is1 < 800
+
