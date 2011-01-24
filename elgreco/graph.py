@@ -73,13 +73,13 @@ class Graph(object):
 
     Attributes
     ----------
-    vertices : list of nodes
+    vertices : set of nodes
     '''
     def __init__(self):
         '''
         Constructs an empty graph
         '''
-        self.vertices = []
+        self.vertices = set()
 
     def add_edge(self, n0, n1):
         '''
@@ -94,8 +94,8 @@ class Graph(object):
         '''
         n0.children.append(n1)
         n1.parents.append(n0)
-        if n0 not in self.vertices: self.vertices.append(n0)
-        if n1 not in self.vertices: self.vertices.append(n1)
+        self.vertices.add(n0)
+        self.vertices.add(n1)
 
     def roots(self):
         '''

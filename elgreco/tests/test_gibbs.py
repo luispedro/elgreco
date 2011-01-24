@@ -10,7 +10,6 @@ def pcv_graph():
     p = Node(elgreco.models.ConstantModel(np.zeros(4)+.1))
     c = Node(elgreco.models.DirichletModel())
     v = Node(elgreco.models.CategoricalModel(4))
-    g.vertices = (p,c,v)
     g.add_edge(p,c)
     g.add_edge(c,v)
     return g,p,c,v
@@ -63,7 +62,7 @@ def test_gibbs():
 def test_sampleforward_constant():
     g = Graph()
     beta = Node(models.ConstantModel(.1))
-    g.vertices.append(beta)
+    g.vertices.add(beta)
     gibbs.sampleforward(g)
     assert hasattr(beta, 'value')
 
