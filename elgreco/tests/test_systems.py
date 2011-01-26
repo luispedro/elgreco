@@ -11,3 +11,4 @@ def test_lda():
 # Done
     g = lda(documents, K)
     gibbs.sampleforward(g)
+    gibbs.gibbs(g, 1, initialise=False)
