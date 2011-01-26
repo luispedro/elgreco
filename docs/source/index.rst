@@ -1,10 +1,12 @@
-.. elgreco documentation master file, created by
-   sphinx-quickstart on Wed Jan 26 15:25:47 2011.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
-Welcome to elgreco's documentation!
 ===================================
+El Greco: Graphical model compiler.
+===================================
+
+El Greco is a graphical models compiler which performs Gibbs sampling. When it
+is completed, it will be written in Python, but models will be automatically
+compiled to C(++) behind the scenes so that they run fast.
+
+The main focus is to provide LDA-type models.
 
 Contents:
 
