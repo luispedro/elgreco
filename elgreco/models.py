@@ -9,8 +9,8 @@ from scipy import stats
 
 class DirichletModel(object):
     dtype = np.ndarray
-    def __init__(self):
-        pass
+    def __init__(self, size):
+        self.size = size
 
     def logP(self, value, parents):
         (p,) = parents
@@ -43,6 +43,10 @@ class ConstantModel(object):
         self.value = value
         self.base = base
         self.dtype = type(value)
+        try:
+            self.size = len(value)
+        except:
+            self.size = 1
 
     def logP(self, value, parents):
         if value != self.value: return float('-Inf')
@@ -88,6 +92,7 @@ class FiniteUniverseModel(object):
 
 class CategoricalModel(FiniteUniverseModel):
     dtype = int
+    size = 1
     def __init__(self, k):
         FiniteUniverseModel.__init__(self, np.arange(k))
 
@@ -110,13 +115,14 @@ class BinomialModel(CategoricalModel):
 
 class MultinomialModel(object):
     dtype = np.ndarray
-    def __init__(self):
-        pass
+    def __init__(self, n):
+        self.size = n
 
 class ChoiceModel(object):
     def __init__(self, base):
         self.base = base
         self.dtype = self.base.dtype
+        self.size = self.base.size
 
     def logP(self, value, parents):
         return self.base.logP(value, self._select_parent)

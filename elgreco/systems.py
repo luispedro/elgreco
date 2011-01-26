@@ -35,10 +35,10 @@ def lda(documents, K, alpha=.1):
     graph = Graph()
     alpha = Node(models.ConstantModel(np.zeros(K)+.1))
     beta = Node(models.ConstantModel(np.zeros(Nwords)+.01))
-    thetas = [Node(models.DirichletModel()) for i in xrange(N)]
+    thetas = [Node(models.DirichletModel(K)) for i in xrange(N)]
     graph.add_edges([alpha],thetas)
 
-    psis = [Node(models.DirichletModel()) for i in xrange(K)]
+    psis = [Node(models.DirichletModel(Nwords)) for i in xrange(K)]
     graph.add_edges([beta], psis)
 
     Zmodel = models.CategoricalModel(K)
