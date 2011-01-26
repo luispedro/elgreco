@@ -107,9 +107,15 @@ class Graph(object):
         In the above example it creates the edges a0->b0, a1->b0, a2->b0,
         a0->b1, a1->b1, and a2->b1.
 
+        Parameters
+        ----------
+        n0s : iterable of Node
+        n1s : iterable of Node
+
         See Also
         --------
         add_edge : function
+            ``add_edges`` is just a convenience function around ``add_edge()``
         '''
         for n0 in n0s:
             for n1 in n1s:
