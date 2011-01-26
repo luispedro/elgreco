@@ -20,9 +20,9 @@ class DirichletModel(object):
         (parents,) = parents
         alphas = parents.value.copy()
         for c in children:
-            if isinstance(c.model, MultinomialModel):
+            if isinstance(c.model, MultinomialModel) or isinstance(c.model, ConstantModel) and isinstance(c.value, np.dtype):
                 alphas += c.value
-            elif isinstance(c.model, CategoricalModel):
+            elif isinstance(c.model, CategoricalModel) or isinstance(c.model, ConstantModel) and isinstance(c.value, int):
                 alphas[c.value] += 1
             else:
                 raise ValueError('elgreco.models.DirichletModel: Cannot handle this type')
@@ -107,4 +107,24 @@ class BinomialModel(CategoricalModel):
 class MultinomialModel(object):
     def __init__(self):
         pass
+
+class ChoiceModel(object):
+    def __init__(self, base):
+        self.base = base
+
+    def logP(self, value, parents):
+        return self.base.logP(value, self._select_parent)
+
+    def _select_parent(self, parents):
+        switch = parents[0].value
+        parent = parents[1+switch]
+
+    def sample1(self, n, parents, children):
+        return self.base.sample1(n, self._select_parent(parents), children)
+
+    def sampleforward(self, n, parents):
+        return self.base.sampleforward(n, self._select_parent(parent))
+
+    def __str__(self):
+        return 'ChoiceModel(%s)' % self.base
 
