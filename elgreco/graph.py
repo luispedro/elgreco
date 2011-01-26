@@ -97,6 +97,24 @@ class Graph(object):
         self.vertices.add(n0)
         self.vertices.add(n1)
 
+    def add_edges(self, n0s, n1s):
+        '''
+        g.add_edges([a0,a1,a2], [b0,b1])
+
+        Creates edges between every element of the first set and every element
+        of the second.
+
+        In the above example it creates the edges a0->b0, a1->b0, a2->b0,
+        a0->b1, a1->b1, and a2->b1.
+
+        See Also
+        --------
+        add_edge : function
+        '''
+        for n0 in n0s:
+            for n1 in n1s:
+                self.add_edge(n0, n1)
+
     def roots(self):
         '''
         roots = g.roots()
