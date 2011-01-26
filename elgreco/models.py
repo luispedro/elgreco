@@ -8,6 +8,7 @@ import numpy as np
 from scipy import stats
 
 class DirichletModel(object):
+    dtype = np.ndarray
     def __init__(self):
         pass
 
@@ -20,9 +21,9 @@ class DirichletModel(object):
         (parents,) = parents
         alphas = parents.value.copy()
         for c in children:
-            if isinstance(c.model, MultinomialModel) or isinstance(c.model, ConstantModel) and isinstance(c.value, np.dtype):
+            if c.model.dtype == np.ndarray:
                 alphas += c.value
-            elif isinstance(c.model, CategoricalModel) or isinstance(c.model, ConstantModel) and isinstance(c.value, int):
+            elif c.model.dtype == int:
                 alphas[c.value] += 1
             else:
                 raise ValueError('elgreco.models.DirichletModel: Cannot handle this type')
@@ -41,6 +42,7 @@ class ConstantModel(object):
     def __init__(self, value, base=None):
         self.value = value
         self.base = base
+        self.dtype = type(value)
 
     def logP(self, value, parents):
         if value != self.value: return float('-Inf')
@@ -85,6 +87,7 @@ class FiniteUniverseModel(object):
         return self.sample1(n, parents, [])
 
 class CategoricalModel(FiniteUniverseModel):
+    dtype = int
     def __init__(self, k):
         FiniteUniverseModel.__init__(self, np.arange(k))
 
@@ -98,6 +101,7 @@ class CategoricalModel(FiniteUniverseModel):
     __repr__ = __str__
 
 class BinomialModel(CategoricalModel):
+    dtype = bool
     def __init__(self):
         CategoricalModel.__init__(self, 2)
     def __str__(self):
@@ -105,12 +109,14 @@ class BinomialModel(CategoricalModel):
     __repr__ = __str__
 
 class MultinomialModel(object):
+    dtype = np.ndarray
     def __init__(self):
         pass
 
 class ChoiceModel(object):
     def __init__(self, base):
         self.base = base
+        self.dtype = self.base.dtype
 
     def logP(self, value, parents):
         return self.base.logP(value, self._select_parent)
