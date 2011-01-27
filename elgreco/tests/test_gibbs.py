@@ -8,7 +8,7 @@ import numpy as np
 def pcv_graph():
     g = Graph()
     p = Node(elgreco.models.ConstantModel(np.zeros(4)+.1))
-    c = Node(elgreco.models.DirichletModel())
+    c = Node(elgreco.models.DirichletModel(4))
     v = Node(elgreco.models.CategoricalModel(4))
     g.add_edge(p,c)
     g.add_edge(c,v)
@@ -83,7 +83,7 @@ def test_sampleforward_categorical():
 def test_sampleforward_dirichlet_categorical():
     np.random.seed(22)
     parent = Node(models.ConstantModel(np.array([.3,.7])))
-    child = Node(models.DirichletModel())
+    child = Node(models.DirichletModel(2))
     grandchild = Node(models.CategoricalModel(2))
     g = Graph()
     g.add_edge(parent, child)
@@ -96,7 +96,7 @@ def test_sampleforward_dirichlet_categorical():
 
 def test_sampleforward_long():
     alpha = Node(models.ConstantModel(np.zeros(3)+.1))
-    dir = Node(models.DirichletModel())
+    dir = Node(models.DirichletModel(3))
     z = Node(models.CategoricalModel(3))
     w = Node(models.ConstantModel(2))
     g = Graph()

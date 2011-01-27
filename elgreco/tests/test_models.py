@@ -5,7 +5,7 @@ import numpy as np
 class SimpleNode(object):
     def __init__(self, value):
         self.value = value
-        self.model = models.MultinomialModel()
+        self.model = models.MultinomialModel(len(value))
 
 def test_constant_model():
     for v in (3, 2.22, -1):
@@ -17,7 +17,7 @@ def test_constant_model():
 
 def test_dirichlet_model():
     np.random.seed(2)
-    d = models.DirichletModel()
+    d = models.DirichletModel(3)
     alphas = np.zeros(3)+.1
     children = map(SimpleNode, [np.ones(3), np.ones(3)+3])
     samples = np.sum([d.sample1(None, [SimpleNode(alphas)], children) for i in xrange(1000)], axis=0)
