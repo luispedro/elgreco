@@ -7,9 +7,9 @@ import numpy as np
 
 def pcv_graph():
     g = Graph()
-    p = Node(elgreco.models.ConstantModel(np.zeros(4)+.1))
-    c = Node(elgreco.models.DirichletModel(4))
-    v = Node(elgreco.models.CategoricalModel(4))
+    p = Node(elgreco.models.Constant(np.zeros(4)+.1))
+    c = Node(elgreco.models.Dirichlet(4))
+    v = Node(elgreco.models.Categorical(4))
     g.add_edge(p,c)
     g.add_edge(c,v)
     return g,p,c,v
@@ -61,7 +61,7 @@ def test_gibbs():
 
 def test_sampleforward_constant():
     g = Graph()
-    beta = Node(models.ConstantModel(.1))
+    beta = Node(models.Constant(.1))
     g.vertices.add(beta)
     gibbs.sampleforward(g)
     assert hasattr(beta, 'value')
@@ -70,8 +70,8 @@ def test_sampleforward_constant():
 
 def test_sampleforward_categorical():
     np.random.seed(22)
-    parent = Node(models.ConstantModel(np.array([.3,.7])))
-    child = Node(models.CategoricalModel(2))
+    parent = Node(models.Constant(np.array([.3,.7])))
+    child = Node(models.Categorical(2))
     g = Graph()
     g.add_edge(parent, child)
     is1 = 0
@@ -82,9 +82,9 @@ def test_sampleforward_categorical():
 
 def test_sampleforward_dirichlet_categorical():
     np.random.seed(22)
-    parent = Node(models.ConstantModel(np.array([.3,.7])))
-    child = Node(models.DirichletModel(2))
-    grandchild = Node(models.CategoricalModel(2))
+    parent = Node(models.Constant(np.array([.3,.7])))
+    child = Node(models.Dirichlet(2))
+    grandchild = Node(models.Categorical(2))
     g = Graph()
     g.add_edge(parent, child)
     g.add_edge(child, grandchild)
@@ -95,10 +95,10 @@ def test_sampleforward_dirichlet_categorical():
     assert 600 < is1 < 800
 
 def test_sampleforward_long():
-    alpha = Node(models.ConstantModel(np.zeros(3)+.1))
-    dir = Node(models.DirichletModel(3))
-    z = Node(models.CategoricalModel(3))
-    w = Node(models.ConstantModel(2))
+    alpha = Node(models.Constant(np.zeros(3)+.1))
+    dir = Node(models.Dirichlet(3))
+    z = Node(models.Categorical(3))
+    w = Node(models.Constant(2))
     g = Graph()
     g.add_edge(alpha, dir)
     g.add_edge(dir,z)
