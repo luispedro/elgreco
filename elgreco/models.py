@@ -283,8 +283,13 @@ class FiniteUniverseC(object):
                 sum_ps += ps[i];
             }
             float r = R.uniform01();
+            r *= sum_ps;
             int k = 0;
-            while (k < %(dim)s && r < ps[k + 1]) ++k;
+            while (k < %(dim)s) {
+                if (r < ps[k]) break;
+                r -= ps[k];
+                ++k;
+            }
         ''' %   {
                 'dim' : len(self.universe),
                 }
