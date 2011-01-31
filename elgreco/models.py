@@ -347,15 +347,24 @@ class CategoricalC(FiniteUniverseC):
     def __init__(self, k):
         FiniteUniverseC.__init__(self, np.arange(k))
 
+    def headers(self):
+        for h in FiniteUniverseC.headers(self):
+            yield h
+        yield '''
+        float categorical_logP(float val, float* alphas, int dim) {
+            float sum_alphas = 0;
+            for (int i = 0; i != dim; ++i) {
+                sum_alphas += alphas[i];
+            }
+            return log(alphas[int(val)]/sum_alphas);
+        }
+        '''
+
     def logP(self, value, parents, result_var='result'):
         (parent,) = parents
         yield '''
-        {
-            float val = %(value)s;
-            float sum_alphas = 0;
-            for (int i = 0; i != %(dim)s; ++i) sum_alphas += %(alphas)s[i];
-            %(result_var)s = log(%(alphas)s[int(val)]/sum_alphas);
-        } ''' % {
+        %(result_var)s = categorical_logP(%(value)s, %(alphas)s, %(dim)s);\
+        ''' % {
                 'value' : value,
                 'alphas' : _variable_name(parent),
                 'result_var' : result_var,
