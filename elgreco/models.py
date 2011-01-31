@@ -58,17 +58,32 @@ class DirichletC(object):
     dtype = np.ndarray
     def __init__(self, size):
         self.size = size
+    def headers(self):
+        yield '''
+        float dirichlet_logP(float* value, float* alphas, int dim) {
+            float res = 0;
+            for (int i = 0; i != dim; ++i) {
+                res += alphas[i]*log(value[i]);
+            }
+            return res;
+        }
+        void dirichlet_sample(random_source& R, float* res, float* alphas, int dim) {
+            float sum_alphas = 0.;
+            for (int i = 0; i != dim; ++i) {
+                res[i] = R.gamma(alphas[i], 1.0);
+                sum_alphas += alphas[i];
+            }
+            float V = R.gamma(sum_alphas, 1.0);
+            for (int i = 0; i != dim; ++i) {
+                res[i] /= V;
+            }
+        }
+        '''
     def logP(self, n, parents, result_var='result'):
         (p,) = parents
         alphas = _variable_name(p)
         yield '''
-        {
-            float res = 0;
-            for (int i = 0; i != %(dim)s; ++i) {
-                res += %(alphas)s[i]*log(%(value)s);
-            }
-            %(result_var)s = res;
-        }
+        %(result_var)s = dirichlet_logP(%(value)s, %(alphas)s, %(dim)s);
 ''' %   {
         'alphas' : alphas,
         'value' : _variable_name(n),
@@ -83,9 +98,7 @@ class DirichletC(object):
         yield '''
         {
             float tmp_alphas[%(dim)s];
-            for (int i = 0; i != %(dim)s; ++i) {
-                tmp_alphas[i] = %(alphas)s[i];
-            }
+            std::memcpy(tmp_alphas, %(alphas)s, sizeof(tmp_alphas));
         ''' %   {
                 'dim' : self.size,
                 'alphas' : alphas,
@@ -99,18 +112,9 @@ class DirichletC(object):
                 ''' % { 'dim' : self.size, 'cvalue' : _variable_name(c) }
             elif c.model.dtype == int:
                 yield '''
-                ++tmp_alphas[int(%(pos)s)];
-                ''' % { 'pos' : _variable_name(c) }
+                ++tmp_alphas[int(%(pos)s)];''' % { 'pos' : _variable_name(c) }
         yield '''
-            float sum_alphas = 0.;
-            for (int i = 0; i != %(dim)s; ++i) {
-                %(result_var)s[i] = R.gamma(tmp_alphas[i], 1.0);
-                sum_alphas += tmp_alphas[i];
-            }
-            float V = R.gamma(sum_alphas, 1.0);
-            for (int i = 0; i != %(dim)s; ++i) {
-                %(result_var)s[i] /= V;
-            }
+            dirichlet_sample(R, %(result_var)s, tmp_alphas, %(dim)s);
         } ''' % {
                 'dim' : self.size,
                 'result_var' : result_var,
@@ -155,6 +159,9 @@ class Constant(object):
         return ConstantC(self.value, self.base)
 
 class ConstantC(Constant):
+
+    def headers(self):
+        return ()
 
     def logP(self, value, parents, result_var='result'):
         if self.size == 1:
@@ -250,6 +257,34 @@ class FiniteUniverseC(object):
     def __init__(self, universe):
         self.universe = universe
 
+    def headers(self):
+        yield '''
+        float exparray(float* ps, int dim) {
+            float max_ps = -std::numeric_limits<float>::infinity();
+            for (int i = 0; i != dim; ++i) {
+                if (ps[i] > max_ps) max_ps = ps[i];
+            }
+            float sum_ps = 0.;
+            for (int i = 0; i != dim; ++i) {
+                ps[i] -= max_ps;
+                ps[i] = exp(ps[i]);
+                sum_ps += ps[i];
+            }
+            return sum_ps;
+        }
+        int samplefromlogps(random_source& R, float* ps, int dim) {
+            float sum_ps = exparray(ps, dim);
+            float r = R.uniform01();
+            r *= sum_ps;
+            int k = 0;
+            while (k < dim) {
+                if (r < ps[k]) break;
+                r -= ps[k];
+                ++k;
+            }
+            return k;
+        }
+        '''
     def sample1(self, n, parents, children):
         yield '''
         {
@@ -272,27 +307,8 @@ class FiniteUniverseC(object):
                     yield code
                 yield 'ps[%s] += t;' % i
         yield '''
-            float max_ps = -std::numeric_limits<float>::infinity();
-            for (int i = 0; i != %(dim)s; ++i) {
-                if (ps[i] > max_ps) max_ps = ps[i];
-            }
-            float sum_ps = 0.;
-            for (int i = 0; i != %(dim)s; ++i) {
-                ps[i] -= max_ps;
-                ps[i] = exp(ps[i]);
-                sum_ps += ps[i];
-            }
-            float r = R.uniform01();
-            r *= sum_ps;
-            int k = 0;
-            while (k < %(dim)s) {
-                if (r < ps[k]) break;
-                r -= ps[k];
-                ++k;
-            }
-        ''' %   {
-                'dim' : len(self.universe),
-                }
+            int k = samplefromlogps(R, ps, %(dim)s);
+        ''' %   { 'dim' : len(self.universe), }
         for i,v in enumerate(self.universe):
             yield '''
             if (k == %(i)s) {
@@ -317,6 +333,7 @@ class Categorical(FiniteUniverse):
         (parents,) = parents
         alpha = parents.value
         return np.log(alpha[value]/np.sum(alpha))
+
 
     def __str__(self):
         return 'Categorical(%s)' % len(self.universe)
@@ -346,6 +363,32 @@ class CategoricalC(FiniteUniverseC):
                 'dim' : len(self.universe),
         }
 
+    def sample1(self, n, parents, children):
+        yield '''
+        {
+            float ps[%(dim)s];
+            float t = 0.;
+            for (int vi = 0; vi != %(k)s; ++vi) {
+                ps[vi] = 0;
+                %(node)s = vi;
+
+        ''' % { 'dim' : len(self.universe),
+                'k' : len(self.universe),
+                'node' : _variable_name(n),
+        }
+        for code in self.logP(_variable_name(n), parents, 'ps[vi]'):
+            yield code
+        for c in children:
+            for code in c.model.logP(_variable_name(c), c.children, 't'):
+                yield code
+            yield 'ps[vi] += t;'
+        yield '''
+            }
+            %(result_var)s = samplefromlogps(R, ps, %(dim)s);
+        } ''' %   {
+                'dim' : len(self.universe),
+                'result_var' : _variable_name(n),
+                }
     def interpreted(self):
         return Categorical(len(self.universe))
 
@@ -390,6 +433,9 @@ class Choice(object):
 def ChoiceC(object):
     def __init__(self, base):
         Choice.__init__(self, base)
+
+    def headers(self):
+        return ()
 
     def logP(self, value, parents, result_var='result'):
         p0 = parents[0]

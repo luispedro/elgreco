@@ -19,6 +19,7 @@ extern "C" {
     #include <numpy/ndarrayobject.h>
 }
 #include <limits>
+#include <cstring>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
 
@@ -48,7 +49,9 @@ struct random_source {
     private:
        gsl_rng * r;
 };
+'''
 
+_function_start = '''
 PyObject* py_gibbs(PyObject* self, PyObject* args) {
     PyArrayObject* array;
     unsigned seed;
