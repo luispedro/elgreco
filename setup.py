@@ -4,15 +4,17 @@
 # 
 # LICENSE: GPLv3
 
-from __future__ import division
-from sys import exit
+setuptools_not_found_error = '''
+setuptools not found. Please install it.
+
+On linux, the package is often called python-setuptools
+'''
+
 try:
     import setuptools
 except:
-    print '''
-setuptools not found. Please install it.
-
-On linux, the package is often called python-setuptools'''
+    print setuptools_not_found_error
+    from sys import exit
     exit(1)
 
 execfile('elgreco/elgreco_version.py')
