@@ -102,12 +102,12 @@ class DirichletC(object):
                 ++tmp_alphas[int(%(pos)s)];
                 ''' % { 'pos' : _variable_name(c) }
         yield '''
-            float sum_alphas;
+            float sum_alphas = 0.;
             for (int i = 0; i != %(dim)s; ++i) {
-                %(result_var)s[i] = R.sample_gamma(tmp_alphas[i]);
+                %(result_var)s[i] = R.gamma(tmp_alphas[i], 1.0);
                 sum_alphas += tmp_alphas[i];
             }
-            float V = R.sample_gamma(sum_alphas);
+            float V = R.gamma(sum_alphas, 1.0);
             for (int i = 0; i != %(dim)s; ++i) {
                 %(result_var)s[i] /= V;
             }

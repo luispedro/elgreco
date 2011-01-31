@@ -19,6 +19,8 @@ extern "C" {
     #include <numpy/ndarrayobject.h>
 }
 #include <limits>
+#include <gsl/gsl_rng.h>
+#include <gsl/gsl_randist.h>
 
 namespace{
 
@@ -27,23 +29,36 @@ const char ErrorMsg[] =
 
 
 struct random_source {
+    random_source(unsigned s)
+        :r(gsl_rng_alloc(gsl_rng_mt19937))
+    {
+        gsl_rng_set(r, s);
+    }
+    ~random_source() {
+        gsl_rng_free(r);
+    }
+
+
     float uniform01() {
-        return random();
+        return gsl_ran_flat(r, 0., 1.);
     }
-    float sample_gamma(float n) {
-        return uniform01();
+    float gamma(float a, float b) {
+        return gsl_ran_gamma(r, a, b);
     }
+    private:
+       gsl_rng * r;
 };
 
 PyObject* py_gibbs(PyObject* self, PyObject* args) {
     PyArrayObject* array;
-    if (!PyArg_ParseTuple(args,"O", &array)) return NULL;
+    unsigned seed;
+    if (!PyArg_ParseTuple(args,"Oi", &array, &seed)) return NULL;
     if (!PyArray_Check(array) || PyArray_TYPE(array) != NPY_FLOAT || !PyArray_ISCARRAY(array)) {
         PyErr_SetString(PyExc_RuntimeError, ErrorMsg);
         return NULL;
     }
     float* data = static_cast<float*>(PyArray_DATA(array));
-    random_source R;
+    random_source R(seed);
 
 '''
 
@@ -62,6 +77,7 @@ PyMethodDef methods[] = {
 extern "C"
 void init_elgreco()
   {
+    gsl_rng_env_setup();
     import_array();
     (void)Py_InitModule("_elgreco", methods);
   }
