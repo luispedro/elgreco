@@ -171,8 +171,7 @@ class ConstantC(Constant):
                 compute_base = '%s = 0.;' % result_var
             yield '''
                 {
-                    float t = %(value)s;
-                    if (t != %(fixed)s) %(result_var)s = -std::numeric_limits<float>::infinity();
+                    if (%(value)s != %(fixed)s) %(result_var)s = -std::numeric_limits<float>::infinity();
                     else {
                         %(compute_base)s
                     }
