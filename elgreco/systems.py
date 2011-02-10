@@ -33,20 +33,20 @@ def lda(documents, K, alpha=.1):
     Nwords = 1 + max(max(doc) for doc in documents)
 
     graph = Graph()
-    alpha = Node(models.Constant(np.zeros(K)+.1))
-    beta = Node(models.Constant(np.zeros(Nwords)+.01))
-    thetas = [Node(models.Dirichlet(K)) for i in xrange(N)]
+    alpha = Node(models.Constant(np.zeros(K)+.1), name=r'$\alpha$')
+    beta = Node(models.Constant(np.zeros(Nwords)+.01), name=r'$\beta$')
+    thetas = [Node(models.Dirichlet(K), name=r'$\theta_%s$' % i) for i in xrange(N)]
     graph.add_edges([alpha],thetas)
 
-    psis = [Node(models.Dirichlet(Nwords)) for i in xrange(K)]
+    psis = [Node(models.Dirichlet(Nwords), name=r'$\Psi_%s$' % i) for i in xrange(K)]
     graph.add_edges([beta], psis)
 
     Zmodel = models.Categorical(K)
     Wmodel = models.Choice(models.Categorical(Nwords))
     for i,doc in enumerate(documents):
         for w in doc:
-            zij = Node(Zmodel)
-            observed = Node(models.Constant(w, Wmodel))
+            zij = Node(Zmodel, name=r'$z_{ij}$')
+            observed = Node(models.Constant(w, Wmodel), name=r'$w_{ij}$')
 
             graph.add_edge(thetas[i], zij)
             graph.add_edge(zij, observed)
