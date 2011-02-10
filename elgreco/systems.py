@@ -46,7 +46,7 @@ def lda(documents, K, alpha=.1):
     for i,doc in enumerate(documents):
         for w in doc:
             zij = Node(Zmodel)
-            observed = Node(models.Constant(w), Wmodel)
+            observed = Node(models.Constant(w, Wmodel))
 
             graph.add_edge(thetas[i], zij)
             graph.add_edge(zij, observed)
