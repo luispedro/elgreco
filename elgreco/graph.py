@@ -23,12 +23,14 @@ class Node(object):
     name : unicode
     model : elgreco.models
     value : anything, optional
+    fixed : boolean
     '''
     def __init__(self, model, name=u'unnamed'):
         self.children = []
         self.parents = []
         self.name = name
         self.model = model
+        self.fixed = False
 
     def logP(self):
         '''
@@ -51,7 +53,8 @@ class Node(object):
         children.
 
         '''
-        self.value = self.model.sample1(self, self.parents, self.children)
+        if not self.fixed:
+            self.value = self.model.sample1(self, self.parents, self.children)
         return self.value
 
     def sampleforward(self):
@@ -61,8 +64,18 @@ class Node(object):
         Sample the value given the value of its parents (independent of the
         children!).
         '''
-        self.value = self.model.sampleforward(self, self.parents)
+        if not self.fixed:
+            self.value = self.model.sampleforward(self, self.parents)
         return self.value
+
+    def fix(self, value):
+        '''
+        n.fix(v)
+
+        Fix the value of n to v
+        '''
+        self.value = value
+        self.fixed = True
 
     def __unicode__(self):
         return 'N[%s]' % self.name

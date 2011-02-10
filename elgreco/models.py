@@ -131,9 +131,8 @@ class DirichletC(object):
         return Dirichlet(self.size)
 
 class Constant(object):
-    def __init__(self, value, base=None):
+    def __init__(self, value):
         self.value = value
-        self.base = base
         self.dtype = type(value)
         try:
             self.size = len(value)
@@ -142,8 +141,7 @@ class Constant(object):
 
     def logP(self, value, parents):
         if value != self.value: return float('-Inf')
-        if self.base is None: return 0.
-        return self.base.logP(value, parents)
+        return 0.
 
     def sample1(self, _n, _p, _c):
         return self.value
@@ -156,7 +154,7 @@ class Constant(object):
     __repr__ = __str__
 
     def compiled(self):
-        return ConstantC(self.value, self.base)
+        return ConstantC(self.value)
 
 class ConstantC(Constant):
 
@@ -165,20 +163,11 @@ class ConstantC(Constant):
 
     def logP(self, value, parents, result_var='result'):
         if self.size == 1:
-            if self.base is not None:
-                compute_base = self.base.logP(value, parents, result_var)
-            else:
-                compute_base = '%s = 0.;' % result_var
             yield '''
-                {
-                    if (%(value)s != %(fixed)s) %(result_var)s = -std::numeric_limits<float>::infinity();
-                    else {
-                        %(compute_base)s
-                    }
-                } ''' % {
+                %(result_var)s = (%(value)s == %(fixed)s) ? 0. : -std::numeric_limits<float>::infinity();
+                ''' % {
                         'value' : value,
                         'fixed' : self.value,
-                        'compute_base' : compute_base,
                         'result_var' : result_var,
                         }
         else:
@@ -195,13 +184,6 @@ class ConstantC(Constant):
                         'value' : self.value[i],
                         'result_var' : result_var,
                         'i' : i,
-                }
-            yield '''
-                if (%(result_var)s == 0.) {
-                    %(compute_base)s
-                }''' % {
-                        'result_var' : result_var,
-                        'compute_base' : self.base.logP(value, parents, result_var),
                 }
 
     def sample1(self, _n, _p, _c):
@@ -222,7 +204,7 @@ class ConstantC(Constant):
                 }
 
     def interpreted(self):
-        return Constant(self.value, self.base)
+        return Constant(self.value)
 
 class FiniteUniverse(object):
     def __init__(self, universe):
@@ -431,7 +413,7 @@ class Choice(object):
         return self.base.sample1(n, self._select_parents(parents), children)
 
     def sampleforward(self, n, parents):
-        return self.base.sampleforward(n, self._select_parents(parent))
+        return self.base.sampleforward(n, self._select_parents(parents))
 
     def __str__(self):
         return 'Choice(%s)' % self.base
