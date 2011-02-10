@@ -420,17 +420,18 @@ class Choice(object):
         self.size = self.base.size
 
     def logP(self, value, parents):
-        return self.base.logP(value, self._select_parent(parents))
+        return self.base.logP(value, self._select_parents(parents))
 
-    def _select_parent(self, parents):
+    def _select_parents(self, parents):
         switch = parents[0].value
-        parent = parents[1+switch]
+        parent = parents[1+int(switch)]
+        return [parent]
 
     def sample1(self, n, parents, children):
-        return self.base.sample1(n, [self._select_parent(parents)], children)
+        return self.base.sample1(n, self._select_parents(parents), children)
 
     def sampleforward(self, n, parents):
-        return self.base.sampleforward(n, [self._select_parent(parent)])
+        return self.base.sampleforward(n, self._select_parents(parent))
 
     def __str__(self):
         return 'Choice(%s)' % self.base
