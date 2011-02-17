@@ -45,7 +45,9 @@ def lda(documents, K, alpha=.1):
         ti = Node(models.Dirichlet(K), name=r'$\theta_%s$' % i)
         graph.add_edge(alpha,ti)
 
-        w = np.array([np.sum(doc == wi) for wi in xrange(Nwords)])
+        w = np.bincount(doc)
+        if len(w) < Nwords:
+            w = np.concatenate([w, np.zeros(Nwords-len(w))])
         wi = Node(Wmodel, name=r'$w_i$')
         wi.fix(w)
 
