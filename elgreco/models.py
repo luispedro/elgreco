@@ -217,7 +217,7 @@ class DirichletC(Dirichlet):
                 ++tmp_alphas[int(%(pos)s)];''' % { 'pos' : _variable_name(c) }
             elif c.model.distribution == 'mixture_multinomial':
                 yield '''
-                float ** counts = new (float*)[%(dim)s];
+                float * multinomials[%(dim)s];
                 const int N = %(N)s;
                 ''' % {
                         'dim' : self.size,
@@ -225,18 +225,16 @@ class DirichletC(Dirichlet):
                     }
                 for i,p in enumerate(c.namedparents['psi']):
                     yield '''
-                    counts[%(i)s] = %(p)s;
-                    ''' % {
+                    multinomials[%(i)s] = %(p)s;''' % {
                             'i' : i,
                             'p' : _variable_name(p)
                     }
                 yield '''
-                sample_multinomial_mixture(R, %(result_var)s, tmp_alphas, %(dim)s, counts, N);
-                delete [] counts;
-                }
-                ''' % {
+                sample_multinomial_mixture(R, %(result_var)s, tmp_alphas, %(dim)s, multinomials, %(counts)s, N);
+                } ''' % {
                     'dim' : self.size,
                     'result_var' : result_var,
+                    'counts' : _variable_name(c),
                }
 
                 return
@@ -547,6 +545,27 @@ class MultinomialMixture(object):
 
     def __str__(self):
         return 'MultinomialMixture(%s, %s)' % (self.k, self.n)
+    __repr__ = __str__
+
+    def compiled(self):
+        return MultinomialMixtureC(self.k, self.size)
+
+class MultinomialMixtureC(MultinomialMixture):
+
+    def headers(self):
+        return ()
+
+    def logP(self, value, parents):
+        raise NotImplementedError
+
+    def sample1(self, value, parents, children):
+        raise NotImplementedError
+
+    def sampleforward(self, value, parents):
+        raise NotImplementedError
+
+    def __str__(self):
+        return 'MultinomialMixtureC(%s, %s)' % (self.k, self.n)
     __repr__ = __str__
 
 class Choice(object):
