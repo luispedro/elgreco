@@ -1,6 +1,9 @@
+import numpy as np
+
 from elgreco.systems import lda
 from elgreco import gibbs
 from elgreco.compilation import arrayify
+
 def test_arrayify():
     K = 2
     documents = [
@@ -12,10 +15,12 @@ def test_arrayify():
     gibbs.sampleforward(g)
     for v in g.vertices:
         break
+
     value0 = v.value
     data = arrayify(g)
-    assert value0 == data[0]
+    # We need to convert to the same type, otherwise we get rounding errors:
+    assert np.all(value0.astype(data.dtype) == data[:len(value0)])
     v.value = 1+value0
-    assert 1+value0 == data[0]
-    assert 1+value0 == v.value
+    assert np.all((1.+value0).astype(data.dtype) == data[:len(value0)])
+    assert np.all((1+value0).astype(v.value.dtype) == v.value)
     gibbs.gibbs(g, 2)
