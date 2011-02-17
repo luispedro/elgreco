@@ -15,36 +15,33 @@ from __future__ import division
 import numpy as np
 from scipy import stats
 
-
 def _variable_name(node):
     return node._value.variable_name()
 
 class Dirichlet(object):
     dtype = np.ndarray
+    distribution = 'dirichlet'
     def __init__(self, size):
         self.size = size
+
+    def check(self, n, parents, children):
+        if children:
+            if len(set([c.model.distribution for c in children])) > 1:
+                raise ValueError
+            if children[0].model.distribution not in (
+                            'multinomial',
+                            'mixture_multinomial',
+                            'categorical'):
+                raise ValueError
+        if len(parents) != 1 or parents[0].size != self.size:
+            raise ValueError
 
     def logP(self, value, parents):
         (p,) = parents
         alphas = p.value
         return np.dot(alphas, np.log(val))
 
-    def sample1(self, _, parents, children):
-        (parents,) = parents
-        alphas = parents.value.copy()
-        for c in children:
-            if c.model.dtype == np.ndarray:
-                alphas += c.value
-            elif c.model.dtype == int:
-                alphas[c.value] += 1
-            else:
-                raise ValueError('elgreco.models.Dirichlet: Cannot handle this type')
-        gammas = np.array(map(stats.gamma.rvs, alphas))
-        V = stats.gamma.rvs(alphas.sum())
-        return gammas/V
 
-    def sampleforward(self, _n, parents):
-        return self.sample1(_n, parents, [])
     def __str__(self):
         return 'Dirichlet()'
     __repr__ = __str__
@@ -52,12 +49,72 @@ class Dirichlet(object):
     def compiled(self):
         return DirichletC(self.size)
 
+    def sample1(self, n, parents, children):
+        (parents,) = parents
+        alphas = parents.value.copy()
+        if len(children):
+            c = children[0]
+            if c.model.distribution == 'multinomial':
+                for c in children:
+                    alphas += c.value
+            elif c.model.distribution == 'mixture_multinomial':
+                if [n] == c.namedparents['z']:
+                    psis = c.namedparents['psi']
+                    rem = 1.
+                    res = []
+                    for i in xrange(len(psis)-1):
+                        psi0 = psis[i].value
+                        a0 = alphas[i]
+                        a1 = np.sum(alphas)-a0
+                        psi1 = np.sum([p.value for j,p in enumerate(psis) if j != i])
+                        bj = []
+                        nj = []
+                        for j,cj in enumerate(c.value):
+                            if cj == 0.: continue
+                            rj = psi0[j]/psi1[j]
+                            bj.append(1.-rj)
+                            nj.append(ci)
+                        bj = np.array(bj)
+                        nj = np.array(nj)
+                        p = np.vectorize(lambda t: np.product((1-bj*t)**nj)*t**a0*(1-t)**a1)
+
+                        thetas = np.linspace(0, 1, 100)
+                        pthetas = p(thetas)
+                        r = np.sum(pthetas)*np.random.random()
+                        a,b = 0, len(pthetas)
+                        while a + 1 < b:
+                            m = a+(b-a)//2
+                            if r < pthetas[m]: b = m
+                            else: a = m
+                        v = rem*a/100.
+                        rem -= v
+                        res.append(v)
+                    res.append(rem)
+                    return np.array(res)
+                elif n in c.namedparents['psi']:
+                    alphas *= len(children)
+                    for c in children:
+                        (z,) = c.namedparents['z']
+                        index = c.namedparents['psi'].index(n)
+                        z = z.value[index]
+                        alphas += z*c.value
+                else:
+                    raise NotImplementedError(
+                        'elgreco.models.Dirichlet.sample1: Cannot handle this structure')
+            elif c.model.distribution == 'categorical':
+                for c in children:
+                    alphas[int(c.value)] += 1
+            else:
+                raise ValueError('elgreco.models.Dirichlet: I cannot handle the case where my children are of type %s' % c.model.distribution)
+        gammas = np.array(map(stats.gamma.rvs, alphas))
+        V = stats.gamma.rvs(alphas.sum())
+        return gammas/V
+
+    def sampleforward(self, _n, parents):
+        return self.sample1(_n, parents, [])
 
 
-class DirichletC(object):
-    dtype = np.ndarray
-    def __init__(self, size):
-        self.size = size
+class DirichletC(Dirichlet):
     def headers(self):
         yield '''
         float dirichlet_logP(float* value, float* alphas, int dim) {
@@ -77,6 +134,51 @@ class DirichletC(object):
             for (int i = 0; i != dim; ++i) {
                 res[i] /= V;
             }
+        }
+        float multinomial_mixture_p(float t, const float* bj, const float* cj, const int N, const float alpha) {
+            float res = std::pow(t, alpha)*std::pow(1.-t, alpha);
+            for (int j = 0; j != N; ++j) {
+                res *= std::pow(1-bj[j]*t, cj[j]);
+            }
+            return res;
+        }
+        float sample_multinomial_mixture1(random_source& R, float* bj, const float* counts, const int N, const float alpha) {
+            const int Nr_samples = 100;
+            float ps[Nr_samples];
+            float cumsum = 0;
+            for (int i = 0; i != Nr_samples; ++i) {
+                ps[i] = multinomial_mixture_p(float(i)/Nr_samples, bj, counts, N, alpha);
+                cumsum += ps[i];
+            }
+            const float val = cumsum * R.uniform01();
+            int a = 0;
+            int b = Nr_samples;
+            while (a + 1 < b) {
+                int m = a + (b-a)/2;
+                if (val < ps[m]) b = m;
+                else a = m;
+            }
+            return float(a)/Nr_samples;
+        }
+        void sample_multinomial_mixture(random_source& R, float* res, float* alphas, int dim, float** multinomials, float* counts, int N) {
+            float rem = 1.;
+            float* bj = new float[N];
+            for (int i = 0; i != (dim - 1); ++i) {
+                float* c0 = multinomials[i];
+                for (int j = 0; j != N; ++j) {
+                    float c1j = 0;
+                    for (int ii = 0; ii != dim; ++ii) {
+                        if (i == ii) continue;
+                        c1j += multinomials[ii][j];
+                    }
+                    const float b = c0[j]/c1j;
+                    bj[j] = 1 - b;
+                }
+                const float v = rem*sample_multinomial_mixture1(R, bj, counts, N, alphas[0]);
+                res[i] = v;
+                rem -= v;
+            }
+            res[dim - 1] = rem;
         }
         '''
     def logP(self, n, parents, result_var='result'):
@@ -104,15 +206,40 @@ class DirichletC(object):
                 'alphas' : alphas,
                 }
         for c in children:
-            if c.model.dtype == np.ndarray:
+            if c.model.distribution == 'multinomial':
                 yield '''
                 for (int i = 0; i != %(dim)s; ++i) {
                     tmp_alphas[i] += %(cvalue)s[i];
                 }
                 ''' % { 'dim' : self.size, 'cvalue' : _variable_name(c) }
-            elif c.model.dtype == int:
+            elif c.model.distribution == 'categorical':
                 yield '''
                 ++tmp_alphas[int(%(pos)s)];''' % { 'pos' : _variable_name(c) }
+            elif c.model.distribution == 'mixture_multinomial':
+                yield '''
+                float ** counts = new (float*)[%(dim)s];
+                const int N = %(N)s;
+                ''' % {
+                        'dim' : self.size,
+                        'N' : len(c.namedparents['psi'][0].value),
+                    }
+                for i,p in enumerate(c.namedparents['psi']):
+                    yield '''
+                    counts[%(i)s] = %(p)s;
+                    ''' % {
+                            'i' : i,
+                            'p' : _variable_name(p)
+                    }
+                yield '''
+                sample_multinomial_mixture(R, %(result_var)s, tmp_alphas, %(dim)s, counts, N);
+                delete [] counts;
+                }
+                ''' % {
+                    'dim' : self.size,
+                    'result_var' : result_var,
+               }
+
+                return
         yield '''
             dirichlet_sample(R, %(result_var)s, tmp_alphas, %(dim)s);
         } ''' % {
@@ -120,15 +247,11 @@ class DirichletC(object):
                 'result_var' : result_var,
                 }
 
-    def sampleforward(self, n, parents):
-        return self.codesample1(self, n, parents, [])
-
     def __str__(self):
         return 'DirichletC()'
-    __repr__ = __str__
 
     def interpreted(self):
-        return Dirichlet(self.size)
+        return Dirichlet_Multinomial(self.size)
 
 class Constant(object):
     def __init__(self, value):
@@ -307,6 +430,7 @@ class FiniteUniverseC(object):
 class Categorical(FiniteUniverse):
     dtype = int
     size = 1
+    distribution = 'categorical'
     def __init__(self, k):
         FiniteUniverse.__init__(self, np.arange(k))
 
@@ -326,6 +450,7 @@ class Categorical(FiniteUniverse):
 class CategoricalC(FiniteUniverseC):
     dtype = int
     size = 1
+    distribution = 'categorical'
     def __init__(self, k):
         FiniteUniverseC.__init__(self, np.arange(k))
 
@@ -384,6 +509,7 @@ class CategoricalC(FiniteUniverseC):
 
 class Binomial(Categorical):
     dtype = bool
+    distribution = 'binomial'
     def __init__(self):
         Categorical.__init__(self, 2)
     def __str__(self):
@@ -392,8 +518,36 @@ class Binomial(Categorical):
 
 class Multinomial(object):
     dtype = np.ndarray
+    distribution = 'multinomial'
     def __init__(self, n):
         self.size = n
+
+class MultinomialMixture(object):
+    dtype = np.ndarray
+    distribution = 'mixture_multinomial'
+    def __init__(self, k, n):
+        self.k = k
+        self.size = n
+
+    def logP(self, value, parents):
+        z = parents[0]
+        assert len(parents) == len(z)+1
+        alphas = np.zeros(self.size)
+        for zi,w in zip(z, parents[1:]):
+            alphas += zi*w.value
+        return np.dot(log(value), alphas)
+
+    def sample1(self, value, parents, children):
+        if len(children) != []:
+            raise NotImplementedError
+        raise NotImplementedError
+
+    def sampleforward(self, value, parents):
+        return self.sample1(value, parents, [])
+
+    def __str__(self):
+        return 'MultinomialMixture(%s, %s)' % (self.k, self.n)
+    __repr__ = __str__
 
 class Choice(object):
     def __init__(self, base):

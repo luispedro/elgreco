@@ -20,6 +20,7 @@ class Node(object):
     ----------
     children : list of Node
     parents : list of Node
+    namedparents : dict of Node
     name : unicode
     model : elgreco.models
     value : anything, optional
@@ -28,9 +29,12 @@ class Node(object):
     def __init__(self, model, name=u'unnamed'):
         self.children = []
         self.parents = []
+        self.namedparents = {}
         self.name = name
         self.model = model
         self.fixed = False
+
+        assert type(name) in (str, unicode)
 
     def logP(self):
         '''
@@ -94,9 +98,9 @@ class Graph(object):
         '''
         self.vertices = set()
 
-    def add_edge(self, n0, n1):
+    def add_edge(self, n0, n1, name=None):
         '''
-        g.add_edge(n0, n1)
+        g.add_edge(n0, n1, name=None)
 
         Add edge ``n0 -> n1``
 
@@ -104,15 +108,23 @@ class Graph(object):
         ----------
         n0 : Node
         n1 : Node
+        name : str, optional
+            If given, the edge is added, with that name to the ``namedparents``
+            of ``n1``. Otherwise, it is not added to ``namedparents``
         '''
         n0.children.append(n1)
         n1.parents.append(n0)
         self.vertices.add(n0)
         self.vertices.add(n1)
+        if name is not None:
+            if name not in n1.namedparents:
+                n1.namedparents[name] = [n0]
+            else:
+                n1.namedparents[name].append(n0)
 
-    def add_edges(self, n0s, n1s):
+    def add_edges(self, n0s, n1s, name=None):
         '''
-        g.add_edges([a0,a1,a2], [b0,b1])
+        g.add_edges([a0,a1,a2], [b0,b1], name=None)
 
         Creates edges between every element of the first set and every element
         of the second.
@@ -124,6 +136,8 @@ class Graph(object):
         ----------
         n0s : iterable of Node
         n1s : iterable of Node
+        name : str, optional
+            Has the same effect as the analogous parameter in `add_edge`
 
         See Also
         --------
@@ -132,7 +146,7 @@ class Graph(object):
         '''
         for n0 in n0s:
             for n1 in n1s:
-                self.add_edge(n0, n1)
+                self.add_edge(n0, n1, name)
 
     def roots(self):
         '''

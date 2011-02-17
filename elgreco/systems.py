@@ -35,23 +35,22 @@ def lda(documents, K, alpha=.1):
     graph = Graph()
     alpha = Node(models.Constant(np.zeros(K)+.1), name=r'$\alpha$')
     beta = Node(models.Constant(np.zeros(Nwords)+.01), name=r'$\beta$')
-    thetas = [Node(models.Dirichlet(K), name=r'$\theta_%s$' % i) for i in xrange(N)]
-    graph.add_edges([alpha],thetas)
 
     psis = [Node(models.Dirichlet(Nwords), name=r'$\Psi_%s$' % i) for i in xrange(K)]
     graph.add_edges([beta], psis)
 
     Zmodel = models.Categorical(K)
-    Wmodel = models.Choice(models.Categorical(Nwords))
+    Wmodel = models.MultinomialMixture(K, Nwords)
     for i,doc in enumerate(documents):
-        for w in doc:
-            zij = Node(Zmodel, name=r'$z_{ij}$')
-            observed = Node(Wmodel, name=r'$w_{ij}$')
-            observed.fix(w)
+        ti = Node(models.Dirichlet(K), name=r'$\theta_%s$' % i)
+        graph.add_edge(alpha,ti)
 
-            graph.add_edge(thetas[i], zij)
-            graph.add_edge(zij, observed)
-            graph.add_edges(psis, [observed])
+        w = np.array([np.sum(doc == wi) for wi in xrange(Nwords)])
+        wi = Node(Wmodel, name=r'$w_i$')
+        wi.fix(w)
+
+        graph.add_edge(ti, wi, 'z')
+        graph.add_edges(psis, [wi], 'psi')
     return graph
 
 
