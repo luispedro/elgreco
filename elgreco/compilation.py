@@ -152,3 +152,34 @@ def arrayify(graph):
         v.__class__ = NodeRef
         next += size
     return data
+
+def output_code(output, g):
+    '''
+    output_code(output, g)
+
+    Output code to file-like `output`
+
+    Parameters
+    ----------
+    output : file-like
+    g : Node.Graph
+        Graph that has been arrayify()ed
+    '''
+    print >>output, _module_header
+    for v in g.vertices:
+        v.model = v.model.compiled()
+    headers = set()
+    for v in g.vertices:
+        if v.fixed: continue
+        headers.add(tuple(v.model.headers()))
+
+    for head in headers:
+        for h in head:
+            print >>output, h
+    print >>output, _function_start
+    for v in g.vertices:
+        if v.fixed: continue
+        for code in v.model.sample1(v, v.parents, v.children):
+            print >>output, code
+    print >>output, _module_footer
+
