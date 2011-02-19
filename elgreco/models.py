@@ -66,14 +66,14 @@ class Dirichlet(object):
                         psi0 = psis[i].value
                         a0 = alphas[i]
                         a1 = np.sum(alphas)-a0
-                        psi1 = np.sum([p.value for j,p in enumerate(psis) if j != i])
+                        psi1 = np.sum([p.value for j,p in enumerate(psis) if j != i], axis=0)
                         bj = []
                         nj = []
                         for j,cj in enumerate(c.value):
                             if cj == 0.: continue
                             rj = psi0[j]/psi1[j]
                             bj.append(1.-rj)
-                            nj.append(ci)
+                            nj.append(cj)
                         bj = np.array(bj)
                         nj = np.array(nj)
                         p = np.vectorize(lambda t: np.product((1-bj*t)**nj)*t**a0*(1-t)**a1)
