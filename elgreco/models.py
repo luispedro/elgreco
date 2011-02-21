@@ -281,7 +281,7 @@ class DirichletC(Dirichlet):
         return 'DirichletC()'
 
     def interpreted(self):
-        return Dirichlet_Multinomial(self.size)
+        return Dirichlet(self.size)
 
 class Constant(object):
     def __init__(self, value):
