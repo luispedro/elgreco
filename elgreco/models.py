@@ -39,7 +39,7 @@ class Dirichlet(object):
     def logP(self, value, parents):
         (p,) = parents
         alphas = p.value
-        return np.dot(alphas, np.log(val))
+        return np.dot(alphas, np.log(value))
 
 
     def __str__(self):
@@ -293,7 +293,7 @@ class Constant(object):
             self.size = 1
 
     def logP(self, value, parents):
-        if value != self.value: return float('-Inf')
+        if not np.allclose(value, self.value): return float('-Inf')
         return 0.
 
     def sample1(self, _n, _p, _c):
@@ -565,7 +565,8 @@ class MultinomialMixture(object):
         alphas = np.zeros(self.size)
         for zi,w in zip(z.value, parents[1:]):
             alphas += zi*w.value
-        return np.dot(np.log(value), alphas)
+        vg0 = value > 0
+        return np.dot(np.log(alphas[vg0]), value[vg0])
 
     def sample1(self, value, parents, children):
         if len(children) != []:
