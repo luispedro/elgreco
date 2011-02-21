@@ -171,11 +171,10 @@ def output_code(output, g):
     headers = set()
     for v in g.vertices:
         if v.fixed: continue
-        headers.add(tuple(v.model.headers()))
+        headers.update(v.model.headers())
 
-    for head in headers:
-        for h in head:
-            print >>output, h
+    for h in headers:
+        print >>output, h
     print >>output, _function_start
     for v in g.vertices:
         if v.fixed: continue
