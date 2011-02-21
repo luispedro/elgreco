@@ -107,8 +107,7 @@ class Dirichlet(object):
             else:
                 raise ValueError('elgreco.models.Dirichlet: I cannot handle the case where my children are of type %s' % c.model.distribution)
         gammas = np.array(map(stats.gamma.rvs, alphas))
-        V = stats.gamma.rvs(alphas.sum())
-        return gammas/V
+        return gammas/gammas.sum()
 
     def sampleforward(self, _n, parents):
         return self.sample1(_n, parents, [])
@@ -562,11 +561,11 @@ class MultinomialMixture(object):
 
     def logP(self, value, parents):
         z = parents[0]
-        assert len(parents) == len(z)+1
+        assert len(parents) == len(z.value)+1
         alphas = np.zeros(self.size)
-        for zi,w in zip(z, parents[1:]):
+        for zi,w in zip(z.value, parents[1:]):
             alphas += zi*w.value
-        return np.dot(log(value), alphas)
+        return np.dot(np.log(value), alphas)
 
     def sample1(self, value, parents, children):
         if len(children) != []:
