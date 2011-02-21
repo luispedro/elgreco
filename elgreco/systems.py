@@ -34,7 +34,10 @@ def lda(documents, K, alpha=.1):
 
     graph = Graph()
     alpha = Node(models.Constant(np.zeros(K)+.1), name=r'$\alpha$')
-    beta = Node(models.Constant(np.zeros(Nwords)+.01), name=r'$\beta$')
+    alpha.fix(alpha.model.value)
+
+    beta = Node(models.Constant(np.zeros(Nwords)+.2), name=r'$\beta$')
+    beta.fix(beta.model.value)
 
     psis = [Node(models.Dirichlet(Nwords), name=r'$\Psi_%s$' % i) for i in xrange(K)]
     graph.add_edges([beta], psis)
