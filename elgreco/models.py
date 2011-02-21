@@ -232,12 +232,8 @@ class DirichletC(Dirichlet):
             if [n] == c.namedparents['z']:
                 assert len(children) == 1
                 yield '''
-                float * multinomials[%(dim)s];
-                const int N = %(N)s;
-                ''' % {
-                        'dim' : self.size,
-                        'N' : len(c.namedparents['psi'][0].value),
-                    }
+                    float * multinomials[%(dim)s];''' % { 'dim' : self.size, }
+
                 for i,p in enumerate(c.namedparents['psi']):
                     yield '''
                     multinomials[%(i)s] = %(p)s;''' % {
@@ -246,11 +242,12 @@ class DirichletC(Dirichlet):
                     }
                 assert len(c.namedparents['psi']) == self.size
                 yield '''
-                sample_multinomial_mixture(R, %(result_var)s, tmp_alphas, %(dim)s, multinomials, %(counts)s, N);
+                    sample_multinomial_mixture(R, %(result_var)s, tmp_alphas, %(dim)s, multinomials, %(counts)s, %(N)s);
                 } ''' % {
                     'dim' : self.size,
                     'result_var' : result_var,
                     'counts' : _variable_name(c),
+                    'N' : len(c.namedparents['psi'][0].value),
                }
             elif n in c.namedparents['psi']:
                 yield '''
