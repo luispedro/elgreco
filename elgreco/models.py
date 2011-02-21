@@ -204,18 +204,33 @@ class DirichletC(Dirichlet):
         ''' %   {
                 'dim' : self.size,
                 'alphas' : alphas,
-                }
-        for c in children:
-            if c.model.distribution == 'multinomial':
+        }
+        dirichlet_sample = '''
+            dirichlet_sample(R, %(result_var)s, tmp_alphas, %(dim)s);
+        } ''' % {
+                'dim' : self.size,
+                'result_var' : result_var,
+            }
+        if not children:
+            yield dirichlet_sample
+            return
+        c = children[0]
+        if c.model.distribution == 'multinomial':
+            for c in children:
                 yield '''
                 for (int i = 0; i != %(dim)s; ++i) {
                     tmp_alphas[i] += %(cvalue)s[i];
                 }
                 ''' % { 'dim' : self.size, 'cvalue' : _variable_name(c) }
-            elif c.model.distribution == 'categorical':
+            yield dirichlet_sample
+        elif c.model.distribution == 'categorical':
+            for c in children:
                 yield '''
                 ++tmp_alphas[int(%(pos)s)];''' % { 'pos' : _variable_name(c) }
-            elif c.model.distribution == 'mixture_multinomial':
+            yield dirichlet_sample
+        elif c.model.distribution == 'mixture_multinomial':
+            if [n] == c.namedparents['z']:
+                assert len(children) == 1
                 yield '''
                 float * multinomials[%(dim)s];
                 const int N = %(N)s;
@@ -229,6 +244,7 @@ class DirichletC(Dirichlet):
                             'i' : i,
                             'p' : _variable_name(p)
                     }
+                assert len(c.namedparents['psi']) == self.size
                 yield '''
                 sample_multinomial_mixture(R, %(result_var)s, tmp_alphas, %(dim)s, multinomials, %(counts)s, N);
                 } ''' % {
@@ -236,14 +252,27 @@ class DirichletC(Dirichlet):
                     'result_var' : result_var,
                     'counts' : _variable_name(c),
                }
-
-                return
-        yield '''
-            dirichlet_sample(R, %(result_var)s, tmp_alphas, %(dim)s);
-        } ''' % {
-                'dim' : self.size,
-                'result_var' : result_var,
-                }
+            elif n in c.namedparents['psi']:
+                yield '''
+                for (int i = 0; i != %(dim)s; ++i) tmp_alphas[i] *= %(n)s;
+                ''' % { 'dim' : self.size, 'n' : len(children) }
+                for c in children:
+                    (z,) = c.namedparents['z']
+                    index = c.namedparents['psi'].index(n)
+                    yield '''
+                        for (int i = 0; i != %(dim)s; ++i) {
+                            tmp_alphas[i] += %(z)s[%(index)s] * %(cvalue)s[i];
+                        } ''' % {
+                            'dim' : self.size,
+                            'z' : _variable_name(z),
+                            'index' : index,
+                            'cvalue' : _variable_name(c)
+                        }
+                yield dirichlet_sample
+            else:
+                raise NotImplementedError
+        else:
+            raise NotImplementedError
 
     def __str__(self):
         return 'DirichletC()'
