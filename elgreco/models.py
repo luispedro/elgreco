@@ -161,6 +161,9 @@ class DirichletC(Dirichlet):
             return float(a)/Nr_samples;
         }
         void sample_multinomial_mixture(random_source& R, float* res, const float* alphas, int dim, float** multinomials, const float* counts, int N) {
+            // N is the total number of elements,
+            // n will be the number of elements that are != 0
+            int n = 0;
             float rem = 1.;
             float* bj = new float[N];
             for (int i = 0; i != (dim - 1); ++i) {
@@ -173,9 +176,9 @@ class DirichletC(Dirichlet):
                         c1j += multinomials[ii][j];
                     }
                     const float b = c0[j]/c1j;
-                    bj[j] = 1 - b;
+                    bj[n++] = 1 - b;
                 }
-                const float v = rem*sample_multinomial_mixture1(R, bj, counts, N, alphas[0]);
+                const float v = rem*sample_multinomial_mixture1(R, bj, counts, n, alphas[0]);
                 res[i] = v;
                 rem -= v;
             }
