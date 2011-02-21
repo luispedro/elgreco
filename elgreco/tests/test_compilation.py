@@ -24,3 +24,4 @@ def test_arrayify():
     assert np.all((1.+value0).astype(data.dtype) == data[:len(value0)])
     assert np.all((1+value0).astype(v.value.dtype) == v.value)
     gibbs.gibbs(g, 2)
+    assert min(v.logP() for v in g.vertices) > float('-inf')
