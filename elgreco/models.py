@@ -138,7 +138,7 @@ class DirichletC(Dirichlet):
         float multinomial_mixture_p(float t, const float* bj, const float* cj, const int N, const float alpha) {
             float res = std::pow(t, alpha)*std::pow(1.-t, alpha);
             for (int j = 0; j != N; ++j) {
-                res *= std::pow(1-bj[j]*t, cj[j]);
+                if (cj[j]) res *= std::pow(1-bj[j]*t, cj[j]);
             }
             return res;
         }
@@ -160,12 +160,13 @@ class DirichletC(Dirichlet):
             }
             return float(a)/Nr_samples;
         }
-        void sample_multinomial_mixture(random_source& R, float* res, float* alphas, int dim, float** multinomials, float* counts, int N) {
+        void sample_multinomial_mixture(random_source& R, float* res, const float* alphas, int dim, float** multinomials, const float* counts, int N) {
             float rem = 1.;
             float* bj = new float[N];
             for (int i = 0; i != (dim - 1); ++i) {
                 float* c0 = multinomials[i];
                 for (int j = 0; j != N; ++j) {
+                    if (counts[j] == 0.0) continue;
                     float c1j = 0;
                     for (int ii = 0; ii != dim; ++ii) {
                         if (i == ii) continue;
@@ -179,6 +180,7 @@ class DirichletC(Dirichlet):
                 rem -= v;
             }
             res[dim - 1] = rem;
+            delete [] bj;
         }
         '''
         yield '''
