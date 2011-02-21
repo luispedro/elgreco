@@ -577,7 +577,7 @@ class MultinomialMixture(object):
         return self.sample1(value, parents, [])
 
     def __str__(self):
-        return 'MultinomialMixture(%s, %s)' % (self.k, self.n)
+        return 'MultinomialMixture(%s, %s)' % (self.k, self.size)
     __repr__ = __str__
 
     def compiled(self):
@@ -598,7 +598,7 @@ class MultinomialMixtureC(MultinomialMixture):
         raise NotImplementedError
 
     def __str__(self):
-        return 'MultinomialMixtureC(%s, %s)' % (self.k, self.n)
+        return 'MultinomialMixtureC(%s, %s)' % (self.k, self.size)
     __repr__ = __str__
 
 class Choice(object):

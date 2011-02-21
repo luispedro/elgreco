@@ -31,3 +31,13 @@ def test_binomial():
     c.parents = [p]
     assert np.abs(sum(c.sample1() for i in xrange(1000))-700) < 100
 
+def test_repr():
+    s = repr(models.Dirichlet(3))
+    assert type(s) in (str, unicode)
+    s = repr(models.Binomial())
+    assert type(s) in (str, unicode)
+    s = repr(models.Multinomial(4))
+    assert type(s) in (str, unicode)
+    s = repr(models.MultinomialMixture(4, 3))
+    assert type(s) in (str, unicode)
+
