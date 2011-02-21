@@ -18,6 +18,9 @@ from scipy import stats
 def _variable_name(node):
     return node._value.variable_name()
 
+def _offset(node):
+    return node._value.slice.start
+
 class Dirichlet(object):
     dtype = np.ndarray
     distribution = 'dirichlet'
@@ -184,6 +187,11 @@ class DirichletC(Dirichlet):
             res[dim - 1] = rem;
             delete [] bj;
         }
+        void inplace_add_multiply(float* res, const float factor, const float* values, const int dim) {
+            for (int i = 0; i != dim; ++i) {
+                res[i] += factor * values[i];
+            }
+        }
         '''
         yield '''
         float tmp_alphas%(dim)s[%(dim)s];
@@ -256,21 +264,30 @@ class DirichletC(Dirichlet):
                     'N' : len(c.namedparents['psi'][0].value),
                }
             elif n in c.namedparents['psi']:
+                (z,) = c.namedparents['z']
                 yield '''
-                for (int i = 0; i != %(dim)s; ++i) tmp_alphas%(dim)s[i] *= %(n)s;
-                ''' % { 'dim' : self.size, 'n' : len(children) }
+                {
+                    for (int i = 0; i != %(dim)s; ++i) tmp_alphas%(dim)s[i] *= %(n)s;
+                    const float* z = %(z)s;
+                    int offsets [] = {
+                ''' % {
+                    'dim' : self.size,
+                    'n' : len(children),
+                    'z': _variable_name(z),
+                    }
                 for c in children:
-                    (z,) = c.namedparents['z']
                     index = c.namedparents['psi'].index(n)
-                    yield '''
-                        for (int i = 0; i != %(dim)s; ++i) {
-                            tmp_alphas%(dim)s[i] += %(z)s[%(index)s] * %(cvalue)s[i];
-                        } ''' % {
-                            'dim' : self.size,
-                            'z' : _variable_name(z),
-                            'index' : index,
-                            'cvalue' : _variable_name(c)
+                    yield ' %(index)s,%(offset)s,' % {
+                            'index': index,
+                            'offset': _offset(c),
                         }
+                yield '''-1 };
+                    int j = 0;
+                    while (offsets[j] != -1) {
+                        inplace_add_multiply(tmp_alphas%(dim)s, z[offsets[j]], data+offsets[j+1], %(dim)s);
+                        j += 2;
+                    }
+                } ''' % { 'dim' : self.size, }
                 yield dirichlet_sample
             else:
                 raise NotImplementedError
