@@ -618,6 +618,9 @@ class MultinomialMixtureC(MultinomialMixture):
         return 'MultinomialMixtureC(%s, %s)' % (self.k, self.size)
     __repr__ = __str__
 
+    def interpreted(self):
+        return MultinomialMixture(self.k, self.size)
+
 class Choice(object):
     def __init__(self, base):
         self.base = base
