@@ -12,3 +12,5 @@ def test_lda():
     g = lda(documents, K)
     gibbs.sampleforward(g)
     gibbs.gibbs(g, 1, initialise=False)
+    assert min(v.logP() for v in g.vertices) > float('-inf')
+
