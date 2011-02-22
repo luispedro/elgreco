@@ -1,92 +1,198 @@
+#include <cmath>
+#include <algorithm>
+#include <iostream>
+#include <gsl/gsl_rng.h>
+#include <gsl/gsl_randist.h>
+
 #include "lda.h"
-#include <vector>
 
-lda::lda_state new_lda_state(const lda::lda_parameters& params, const lda::lda_data& data) {
-    const int nr_docs = data.nr_docs();
-    const int nr_words = data.nr_words();
-    const int nr_topics = params.nr_topics;
-    const int nr_terms = data.nr_terms();
+namespace{
+struct random_source {
+    random_source(unsigned s)
+        :r(gsl_rng_alloc(gsl_rng_mt19937))
+    {
+        gsl_rng_set(r, s);
+    }
+    ~random_source() {
+        gsl_rng_free(r);
+    }
 
-    lda::lda_state res;
-    res.z = new int[nr_words];
-    res.topic = new int[nr_topics];
-    res.topic_count = new int*[nr_docs];
-    res.topic_count[0] = new int[nr_docs*nr_topics];
-    for (int m = 1; m != nr_docs; ++m) {
-        res.topic_count[m] = res.topic_count[m-1]+nr_topics;
+
+    float uniform01() {
+        return gsl_ran_flat(r, 0., 1.);
     }
-    res.topic_term = new int*[nr_terms];
-    res.topic_term[0] = new int[nr_terms*nr_topics];
-    for (int t = 1; t != nr_terms; ++t) {
-        res.topic_term[t] = res.topic_term[t-1] + nr_topics;
+    float gamma(float a, float b) {
+        return gsl_ran_gamma(r, a, b);
     }
-    res.topic_sum = new int[nr_docs];
-    res.alpha = new lda::float_t[nr_topics];
-    res.beta = new lda::float_t[nr_topics];
-    for (int k = 0; k != nr_topics; ++k) {
-        res.alpha[k] = params.alpha;
-        res.beta[k] = params.beta;
+    private:
+       gsl_rng * r;
+};
+
+random_source R = random_source(2);
+
+float dirichlet_logP(float* value, float* alphas, int dim) {
+    float res = 0;
+    for (int i = 0; i != dim; ++i) {
+        res += alphas[i]*std::log(value[i]);
     }
     return res;
 }
-
-
-
-// Implementation based on the description in "Parameter estimation for text
-// analysis" by Gregor Heinrich
-lda::lda_state lda::lda(const lda::lda_parameters& params, const lda::lda_data& data) {
-    lda::lda_state state = new_lda_state(params, data);
-    lda::random_source R = params.R;
-    int* z = state.z;
-    for (int m = 0; m != data.nr_docs(); ++m) {
-        for (int k = 0; k != params.nr_topics; ++k) {
-            state.topic_count[m][k] = 0;
-        }
-        state.topic_sum[m] = 0;
-        for (int j = 0; j != data.size(m); ++j) {
-            const int t = data(m,j);
-            const int k = R.randInt(params.nr_topics - 1);
-            *z++ = k;
-            ++state.topic_count[m][k];
-            ++state.topic_sum[m];
-            ++state.topic_term[t][k];
-            ++state.topic[k];
-        }
+void dirichlet_sample(random_source& R, float* res, float* alphas, int dim) {
+    float sum_alphas = 0.;
+    for (int i = 0; i != dim; ++i) {
+        res[i] = R.gamma(alphas[i], 1.0);
+        sum_alphas += alphas[i];
     }
-    std::vector<double> p;
-    p.resize(params.nr_topics+1);
-    for (int i = 0; i != params.nr_iterations; ++i) {
-        z = state.z;
-        for (int m = 0; m != data.nr_docs(); ++m) {
-            for (int j = 0; j != data.size(m); ++j) {
-                const int ok = *z;
-                const int t = data(m, j);
-                --state.topic_count[m][ok];
-                --state.topic_sum[m];
-                --state.topic[ok];
-                --state.topic_term[t][ok];
-                double total_p = 0;
-                for (int k = 0; k != params.nr_topics; ++k) {
-                    p[k] = (state.topic_term[t][k] + state.beta[k])/
-                                (state.topic[k] + state.beta[k]) *
-                        (state.topic_count[m][k] + state.alpha[k])/
-                                (state.topic_sum[k] + state.alpha[k] - 1);
-                    total_p += p[k];
-                    if (k > 0) p[k] += p[k-1];
-                }
-                p[params.nr_topics] = p[params.nr_topics-1]+1.;
-                const double s = total_p * R.rand();
-                int k = 0;
-                while (k < params.nr_topics && s < p[k + 1]) ++k;
-
-                *z++ = k;
-                ++state.topic_count[m][k];
-                ++state.topic_sum[m];
-                ++state.topic[k];
-                ++state.topic_term[t][k];
+    float V = R.gamma(sum_alphas, 1.0);
+    for (int i = 0; i != dim; ++i) {
+        res[i] /= V;
+    }
+}
+float multinomial_mixture_p(float t, const float* bj, const int* cj, const int N, const float a0, const float a1) {
+    float res = std::pow(t, a0)*std::pow(1.-t, a1);
+    for (int j = 0; j != N; ++j) {
+        const float bt = 1-bj[j]*t;
+        res *= bt;
+    }
+    return res;
+}
+float sample_multinomial_mixture1(random_source& R, float* bj, const int* counts, const int N, const float a0, const float a1) {
+    const int Nr_samples = 100;
+    float ps[Nr_samples];
+    float cumsum = 0;
+    for (int i = 0; i != Nr_samples; ++i) {
+        ps[i] = multinomial_mixture_p(float(i)/Nr_samples, bj, counts, N, a0, a1);
+        cumsum += ps[i];
+    }
+    const float val = cumsum * R.uniform01();
+    int a = 0;
+    int b = Nr_samples;
+    while (a + 1 < b) {
+        int m = a + (b-a)/2;
+        if (val < ps[m]) b = m;
+        else a = m;
+    }
+    return float(a)/Nr_samples;
+}
+void sample_multinomial_mixture(random_source& R, float* res, const float* alphas, int dim, float** multinomials, const int* counts_idx, const int* counts, float* bj) {
+    float rem = 1.;
+    for (int i = 0; i != (dim - 1); ++i) {
+        const float* c0 = multinomials[i];
+        // n will be the number of elements that are != 0
+        int n = 0;
+        const int* c = counts;
+        for (const int* ci = counts_idx; *ci != -1; ++ci, ++c) {
+            if (c0[*ci] == 1.) {
+                bj[n++] = -10000.; // A good approximation to -infinity
+            } else if (c0[*ci] != .5) {
+                const float r = c0[*ci]/float(1.-c0[*ci]);
+                bj[n++] = 1 - r;
+            }
+            for (int ii = 1; ii < *c; ++ii) {
+                bj[n] = bj[n-1];
+                ++n;
             }
         }
+        const float v = rem*sample_multinomial_mixture1(R, bj, counts, n, alphas[i], 1.-alphas[i]);
+        res[i] = v;
+        rem -= v;
     }
-    return state;
+    res[dim - 1] = rem;
+}
+
+}
+
+lda::lda::lda(lda_data& words, lda_parameters params)
+    :K_(params.nr_topics)
+    ,N_(words.nr_docs())
+    ,Nwords_(words.nr_terms())
+    ,alpha_(params.alpha)
+    ,beta_(params.beta) {
+        
+        thetas_ = new float[N_ * K_];
+
+        int Nitems = 0;
+        for (int i = 0; i != words.nr_docs(); ++i) {
+            std::sort(words.at(i).begin(), words.at(i).end());
+            if (words.at(i).back() > Nwords_) Nwords_ = words.at(i).back();
+            Nitems += words.size(i);
+        }
+        multinomials_ = new float*[K_];
+        multinomials_data_ = new float[K_ * Nwords_];
+        for (int k = 0; k != K_; ++k) {
+            multinomials_[k] = multinomials_data_ + k;
+        }
+        counts_ = new int*[N_];
+        counts_data_ = new int[Nitems]; // this is actually an overestimate, but that's fine
+        counts_idx_ = new int*[N_];
+        counts_idx_data_ = new int[Nitems + N_];
+        
+        int* j = counts_idx_data_;
+        int* cj = counts_data_;
+        for (int i = 0; i != N_; ++i) {
+            counts_idx_[i] = j;
+            counts_[i] = cj;
+            float c = 1;
+            int prev = words(i, 0);
+            for (int ci = 1; ci < words.size(i); ++ci) {
+                if (words(i, ci) != prev) {
+                    *j++ = prev;
+                    *cj++ = c;
+                    prev = words(i, ci);
+                    c = 1;
+                } else {
+                    ++c;
+                }
+            }
+            *j++ = prev;
+            *cj++ = c;
+            *j++ = -1;
+        }
+    }
+
+
+void lda::lda::gibbs() {
+    float alphas[K_];
+    float bj[N_];
+    std::fill(alphas, alphas + K_, alpha_);
+    // preprocess_for_theta
+    for (int i = 0; i != Nwords_; ++i) {
+        float ps = 0;
+        for (int k = 0; k != K_; ++k) {
+            ps += multinomials_[k][i];
+        }
+        for (int k = 0; k != K_; ++k) {
+            multinomials_[k][i] /= ps;
+        }
+    }
+    for (int i = 0; i != N_; ++i) {
+        sample_multinomial_mixture(R, thetas_ + i*K_, alphas, K_, multinomials_, counts_idx_[i], counts_[i], bj);
+    }
+    float scratchWords[Nwords_];
+    for (int k = 0; k != K_; ++k) {
+        std::fill(scratchWords, scratchWords + Nwords_, beta_);
+        for (int i = 0; i != N_; ++i) {
+            const float weight = (thetas_ + i*K_)[k];
+            for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
+                scratchWords[*j] += weight * (*cj);
+            }
+        }
+        dirichlet_sample(R, multinomials_[k], scratchWords, Nwords_);
+    }
+}
+
+float lda::lda::logP() const {
+    float alphas[K_];
+    float betas[Nwords_];
+    std::fill(alphas, alphas + K_, alpha_);
+    std::fill(betas, betas + Nwords_, beta_);
+    float p = 0.;
+    for (int i = 0; i != N_; ++i) {
+        p += dirichlet_logP(thetas_ + i*K_, alphas, K_);
+    }
+    for (int k = 0; k != K_; ++k) {
+        p += dirichlet_logP(multinomials_[k], betas, Nwords_);
+    }
+    return p;
 }
 

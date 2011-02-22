@@ -1,23 +1,19 @@
 #ifndef LDA_H_INCLUDE_GUARD_LPC_ELGRECO_
 #define LDA_H_INCLUDE_GUARD_LPC_ELGRECO_
-
 #include <vector>
-#include <istream>
+#include <iostream>
 
-#include "MersenneTwister.h"
+
 
 namespace lda {
-
-typedef double float_t;
-typedef MTRand random_source;
-
 struct lda_parameters {
     int nr_topics;
     int nr_iterations;
-    random_source R;
-    float_t alpha;
-    float_t beta;
+    float alpha;
+    float beta;
 };
+
+
 
 struct lda_data {
     public:
@@ -26,6 +22,7 @@ struct lda_data {
             for (int i = 0; i != docs.size(); ++i) res += size(i);
             return res;
         }
+        std::vector<int>& at(int d) { return docs[d]; }
         int nr_docs() const { return docs.size(); }
         int size(int d) const { return docs[d].size(); }
         int operator()(int d, int w) const { return docs[d][w]; }
@@ -36,27 +33,39 @@ struct lda_data {
         int nr_terms_;
 };
 
-struct lda_state {
-    lda_state()
-        :z(0)
-        ,topic_count(0)
-        ,topic_sum(0)
-        ,topic_term(0)
-        ,topic(0)
-        ,alpha(0)
-        ,beta(0)
-        { }
-    int* z;
-    int** topic_count;
-    int* topic_sum;
-    int** topic_term;
-    int* topic;
-    float_t* alpha;
-    float_t* beta;
+lda_data load(std::istream &in);
+
+struct lda {
+    public:
+        lda(lda_data& data, lda_parameters params);
+        ~lda() {
+            delete [] counts_;
+            delete [] counts_data_;
+            delete [] counts_idx_;
+            delete [] counts_idx_data_;
+            delete [] multinomials_;
+            delete [] multinomials_data_;
+            delete [] thetas_;
+        }
+        void gibbs();
+        float logP() const;
+
+    private:
+        int K_;
+        int N_;
+        int Nwords_;
+
+        int** counts_;
+        int* counts_data_;
+        int** counts_idx_;
+        int* counts_idx_data_;
+
+        float alpha_;
+        float beta_;
+        float** multinomials_;
+        float* multinomials_data_;
+        float* thetas_;
 };
 
-lda_state lda(const lda_parameters& params, const lda_data& data);
-lda_data load(std::istream& in);
 }
-
 #endif // LDA_H_INCLUDE_GUARD_LPC_ELGRECO_

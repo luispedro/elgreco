@@ -4,7 +4,6 @@
 
 #include "lda.h"
 
-
 int main(int argc, char** argv) {
     using namespace lda;
     namespace po = boost::program_options;
@@ -27,7 +26,7 @@ int main(int argc, char** argv) {
     po::store(
         po::command_line_parser(argc, argv)
                 .options(req)
-                .options(opts)
+                //.options(opts)
                 .positional(p)
                 .run(),
         vm);
@@ -45,9 +44,11 @@ int main(int argc, char** argv) {
     lda_parameters params;
     params.nr_topics = vm["k"].as<unsigned>();
     params.nr_iterations = vm["iters"].as<unsigned>();
-    params.alpha = vm["alpha"].as<float>();
-    params.beta = vm["beta"].as<float>();
-    lda_state final_state = lda::lda(params, data);
+    params.alpha = 0.1;// vm["alpha"].as<float>();
+    params.beta =0.1; // vm["beta"].as<float>();
+    //lda_state final_state = lda::lda(params, data);
+    ::lda::lda state(data, params);
+    for (int i = 0; i != params.nr_iterations; ++i) state.gibbs();
     return 0;
 }
 
