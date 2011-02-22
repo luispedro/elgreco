@@ -169,13 +169,19 @@ def output_code(output, g):
     for v in g.vertices:
         v.model = v.model.compiled()
     headers = set()
+    localdecls = set()
     for v in g.vertices:
         if v.fixed: continue
         headers.update(v.model.headers())
+        localdecls.update(v.model.localdecls(v))
 
     for h in headers:
         print >>output, h
     print >>output, _function_start
+
+    for ld in localdecls:
+        print >>output, ld
+
     for v in g.vertices:
         if v.fixed: continue
         for code in v.model.sample1(v, v.parents, v.children):

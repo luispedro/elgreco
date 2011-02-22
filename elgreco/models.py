@@ -21,6 +21,12 @@ def _variable_name(node):
 def _offset(node):
     return node._value.slice.start
 
+class Environment(object):
+    def assign_vector(self, dst, src, dim):
+        return 'std::memcpy(%(dst)s, %(src)s, sizeof(%(src)s[0])*%(dim)s);' % locals()
+
+environment = Environment()
+
 class Dirichlet(object):
     dtype = np.ndarray
     distribution = 'dirichlet'
@@ -193,6 +199,8 @@ class DirichletC(Dirichlet):
             }
         }
         '''
+
+    def localdecls(self, _):
         yield '''
         float tmp_alphas%(dim)s[%(dim)s];
         float* multinomials%(dim)s[%(dim)s];
@@ -214,12 +222,7 @@ class DirichletC(Dirichlet):
         (p,) = parents
         alphas = _variable_name(p)
         result_var = _variable_name(n)
-        yield '''
-        std::memcpy(tmp_alphas%(dim)s, %(alphas)s, sizeof(tmp_alphas%(dim)s));
-        ''' %   {
-                'dim' : self.size,
-                'alphas' : alphas,
-        }
+        yield environment.assign_vector('tmp_alphas%s' % self.size, alphas, self.size)
         dirichlet_sample = '''
         dirichlet_sample(R, %(result_var)s, tmp_alphas%(dim)s, %(dim)s);
         ''' % {
@@ -331,6 +334,9 @@ class ConstantC(Constant):
     def headers(self):
         return ()
 
+    def localdecls(self, _):
+        return ()
+
     def logP(self, value, parents, result_var='result'):
         if self.size == 1:
             yield '''
@@ -436,6 +442,10 @@ class FiniteUniverseC(object):
             return k;
         }
         '''
+
+    def localdecls(self, _):
+        return ()
+
     def sample1(self, n, parents, children):
         yield '''
         {
@@ -605,6 +615,9 @@ class MultinomialMixtureC(MultinomialMixture):
     def headers(self):
         return ()
 
+    def localdecls(self, _):
+        return ()
+
     def logP(self, value, parents):
         raise NotImplementedError
 
@@ -652,6 +665,9 @@ def ChoiceC(object):
         Choice.__init__(self, base)
 
     def headers(self):
+        return ()
+
+    def localdecls(self, _):
         return ()
 
     def logP(self, value, parents, result_var='result'):
