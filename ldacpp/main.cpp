@@ -1,6 +1,5 @@
-#include <fstream>
-#include <iostream>
 #include <boost/program_options.hpp>
+#include <fstream>
 
 #include "lda.h"
 
@@ -18,15 +17,18 @@ int main(int argc, char** argv) {
         ("help", "produce help message")
         ("alpha", po::value<float>()->default_value(.1), "Alpha value")
         ("beta", po::value<float>()->default_value(.1), "beta value")
+        ("seed", po::value<unsigned>()->default_value(2), "Seed value (for random numbers)")
+        ("verbose", po::value<int>()->default_value(0), "Verbosity level")
     ;
 
+    po::options_description allopts("Command Line Options");
+    allopts.add(req).add(opts);
     po::positional_options_description p;
     p.add("input-file", 1);
     po::variables_map vm;
     po::store(
         po::command_line_parser(argc, argv)
-                .options(req)
-                //.options(opts)
+                .options(allopts)
                 .positional(p)
                 .run(),
         vm);
@@ -40,13 +42,15 @@ int main(int argc, char** argv) {
 
     std::ifstream fin(vm["input-file"].as<std::string>().c_str());
     lda_data data = load(fin);
-    std::cout << "Loaded " << data.nr_docs() << " documents." << std::endl;
+    const int verbose = vm["verbose"].as<int>();
+    if (verbose) std::cout << "Loaded " << data.nr_docs() << " documents." << std::endl;
+
     lda_parameters params;
-    params.seed = 2;
     params.nr_topics = vm["k"].as<unsigned>();
     params.nr_iterations = vm["iters"].as<unsigned>();
-    params.alpha = 0.1;// vm["alpha"].as<float>();
-    params.beta =0.1; // vm["beta"].as<float>();
+    params.seed = vm["seed"].as<unsigned>();
+    params.alpha = vm["alpha"].as<float>();
+    params.beta = vm["beta"].as<float>();
     //lda_state final_state = lda::lda(params, data);
     ::lda::lda state(data, params);
     state.forward();
