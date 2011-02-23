@@ -49,7 +49,7 @@ struct lda {
         }
         void gibbs();
         void forward();
-        float logP() const;
+        float logP(bool normalise=false) const;
 
     private:
         int K_;

@@ -31,7 +31,7 @@ struct random_source {
 
 random_source R = random_source(2);
 
-float dirichlet_logP(float* value, float* alphas, int dim, bool normalise=true) {
+float dirichlet_logP(const float* value, const float* alphas, int dim, bool normalise=true) {
     float res = 0;
     for (int i = 0; i != dim; ++i) {
         if(alphas[i]) res += alphas[i]*std::log(value[i]);
@@ -47,13 +47,13 @@ float dirichlet_logP(float* value, float* alphas, int dim, bool normalise=true) 
 
     return res;
 }
-void dirichlet_sample(random_source& R, float* res, float* alphas, int dim) {
+void dirichlet_sample(random_source& R, float* res, const float* alphas, int dim) {
     float V = 0.;
     for (int i = 0; i != dim; ++i) {
         res[i] = R.gamma(alphas[i], 1.0);
         V += res[i];
     }
-    float min = V/dim/1000.;
+    const float min = V/dim/1000.;
     for (int i = 0; i != dim; ++i) {
         res[i] /= V;
         if (res[i] < min) res[i] = min;
@@ -66,6 +66,26 @@ void dirichlet_sample_uniform(random_source& R, float* res, float alpha, int dim
     dirichlet_sample(R, res, alphas, dim);
 }
 
+void add_noise(random_source& R, float* res, int dim, float avg) {
+    float noise[dim];
+    float mean = 0;
+    for (int i = 0; i != dim; ++i) {
+        noise[i] = avg * R.uniform01();
+        mean += noise[i];
+    }
+    mean /= dim;
+    for (int i = 0; i != dim; ++i) {
+        res[i] += noise[i]-mean;
+        if (res[i] < 0) res[i] = -res[i];
+        if (res[i] > 1) res[i] = 1-res[i];
+    }
+    float ps = 0;
+    for (int i = 0; i != dim; ++i) ps += res[i];
+    for (int i = 0; i != dim; ++i) res[i] /= ps;
+}
+
+
+
 float multinomial_mixture_p(float t, const float* bj, const int* cj, const int N) {
     float res = 1.;
     for (int j = 0; j != N; ++j) {
@@ -74,44 +94,51 @@ float multinomial_mixture_p(float t, const float* bj, const int* cj, const int N
     }
     return std::log(res);
 }
-void sample_multinomial_mixture(random_source& R, float* res, const float* alphas, int dim, float** multinomials, const int* counts_idx, const int* counts) {
+float accept_logratio = 0.;
+int accept = 0;
+int reject = 0;
+void sample_multinomial_mixture(random_source& R, float* thetas, const float* alphas, int dim, float** multinomials, const int* counts_idx, const int* counts) {
+    float proposal_prior[dim];
     float proposal[dim];
-    float attempt[dim];
-    std::fill(proposal, proposal + dim, .1);
-    // n will be the number of elements that are != 0
-    int n = 0;
+    std::fill(proposal_prior, proposal_prior + dim, .1);
     for (const int* ci = counts_idx; *ci != -1; ++ci) {
         float max = multinomials[0][*ci];
+        float ps = 0;
         int maxi = 0;
         for (int i = 1; i != dim; ++i) {
+            ps += multinomials[i][*ci];
             if (multinomials[i][*ci] > max) {
                 max = multinomials[i][*ci];
                 maxi = i;
             }
         }
-        proposal[maxi] += 1.;
+        if (max/ps > .8) proposal_prior[maxi] += 1;
     }
-    dirichlet_sample(R, attempt, proposal, dim);
+    //dirichlet_sample(R, proposal, proposal_prior, dim);
+    std::memcpy(proposal, thetas, sizeof(proposal));
+    add_noise(R, proposal, dim, .02);
 
-    float ratio = 1.;
-    for (int i = 0; i != dim; ++i) {
-        const float* m = multinomials[i];
-        for (const int* ci = counts_idx, *c = counts; *ci != -1; ++ci, ++c) {
-            float bj;
-            if (m[*ci] == 1.) {
-                bj = -10000.; // A good approximation to -infinity
-            } else if (m[*ci] != .5) {
-                const float r = m[*ci]/float(1.-m[*ci]);
-                bj = 1 - r;
-            }
-            const float r = (1.-bj*proposal[i])/(1.-bj*res[i]);
-            for (int ii = 0; ii < *c; ++ii) {
-                ratio *= r;
-            }
+    float logratio = 0.;
+    for (const int* j = counts_idx, *cj = counts; *j != -1; ++j, ++cj) {
+        float sum_kp = 0;
+        float sum_kt = 0;
+        for (int k = 0; k != dim; ++k) {
+            const float* m = multinomials[k];
+            sum_kp += proposal[k] * m[*j];
+            sum_kt += thetas[k] * m[*j];
         }
+        logratio += (*cj) * std::log(sum_kp/sum_kt);
     }
-    if (ratio > 1. || R.uniform01() < ratio) {
-        std::memcpy(res, attempt, sizeof(attempt));
+    //logratio += dirichlet_logP(thetas, proposal_prior, dim)
+    //            - dirichlet_logP(proposal, proposal_prior, dim);
+    if (logratio > 0. || std::log(R.uniform01()) < logratio) {
+        accept_logratio += logratio;
+        ++accept;
+        std::memcpy(thetas, proposal, sizeof(float)*dim);
+        //std::cout << "accept [" << logratio << "]\n";
+    } else {
+        ++reject;
+        //std::cout << "reject [" << logratio << "]\n";
     }
 
 }
@@ -167,31 +194,42 @@ lda::lda::lda(lda_data& words, lda_parameters params)
 
 
 void lda::lda::gibbs() {
+    accept_logratio = 0.;
+    accept = 0;
+    reject = 0;
     float alphas[K_];
     std::fill(alphas, alphas + K_, alpha_);
-    // preprocess_for_theta
-    for (int i = 0; i != Nwords_; ++i) {
-        float ps = 0;
-        for (int k = 0; k != K_; ++k) {
-            ps += multinomials_[k][i];
-        }
-        for (int k = 0; k != K_; ++k) {
-            multinomials_[k][i] /= ps;
-        }
-    }
     for (int i = 0; i != N_; ++i) {
         sample_multinomial_mixture(R, thetas_ + i*K_, alphas, K_, multinomials_, counts_idx_[i], counts_[i]);
     }
     float scratchWords[Nwords_];
     for (int k = 0; k != K_; ++k) {
-        std::fill(scratchWords, scratchWords + Nwords_, beta_);
+        float proposal[Nwords_];
+        std::memcpy(proposal, multinomials_[k], sizeof(proposal));
+        add_noise(R, proposal, Nwords_, .02);
+
+        float logratio = 0.;
         for (int i = 0; i != N_; ++i) {
-            const float weight = (thetas_ + i*K_)[k];
+            const float* Ti = (thetas_ + i *K_);
             for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
-                scratchWords[*j] += weight * (*cj);
+                float sum_km = 0;
+                for (int k2 = 0; k2 != K_; ++k2) {
+                    sum_km += Ti[k2] * multinomials_[k2][*j];
+                }
+                float sum_kp = sum_km;
+                sum_kp += Ti[k] * (proposal[*j] - multinomials_[k][*j]);
+                logratio += (*cj) * std::log(sum_kp/sum_km);
             }
         }
-        dirichlet_sample(R, multinomials_[k], scratchWords, Nwords_);
+        //logratio += dirichlet_logP(Ti, proposal_prior, dim)
+        //            - dirichlet_logP(proposal, proposal_prior, dim);
+        if (logratio > 0. || std::log(R.uniform01()) < logratio) {
+            accept_logratio += logratio;
+            std::memcpy(multinomials_[k], proposal, sizeof(proposal));
+            //std::cout << "accept [" << logratio << "]\n";
+        } else {
+            //std::cout << "reject [" << logratio << "]\n";
+        }
     }
 }
 
@@ -205,17 +243,31 @@ void lda::lda::forward() {
 }
 
 
-float lda::lda::logP() const {
+float lda::lda::logP(bool normalise) const {
     float alphas[K_];
     float betas[Nwords_];
     std::fill(alphas, alphas + K_, alpha_);
     std::fill(betas, betas + Nwords_, beta_);
-    float p = 0.;
+    double p = 0.;
     for (int i = 0; i != N_; ++i) {
-        p += dirichlet_logP(thetas_ + i*K_, alphas, K_);
+        const float* Ti = (thetas_ + i*K_);
+        float local_p = 0;
+        p += dirichlet_logP(Ti, alphas, K_, normalise);
+        // compute p += \sum_j w_j  * log( \sum_k \theta_k \psi_k )
+        for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
+            float sum_k = 0.;
+            for (int k = 0; k != K_; ++k) {
+                sum_k += Ti[k] * multinomials_[k][*j];
+            }
+            local_p += (*cj) * std::log(sum_k);
+        }
+        p += local_p;
+        if (normalise) {
+            std::cerr << "normalise not implemented.\n";
+        }
     }
     for (int k = 0; k != K_; ++k) {
-        p += dirichlet_logP(multinomials_[k], betas, Nwords_);
+        p += dirichlet_logP(multinomials_[k], betas, Nwords_, normalise);
     }
     return p;
 }
