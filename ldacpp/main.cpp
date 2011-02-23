@@ -50,8 +50,8 @@ int main(int argc, char** argv) {
     ::lda::lda state(data, params);
     state.forward();
     for (int i = 0; i != params.nr_iterations; ++i) {
-        state.gibbs();
         std::cout << state.logP() << '\n';
+        state.gibbs();
     }
     return 0;
 }
