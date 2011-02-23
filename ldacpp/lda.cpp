@@ -34,7 +34,7 @@ random_source R = random_source(2);
 float dirichlet_logP(const float* value, const float* alphas, int dim, bool normalise=true) {
     float res = 0;
     for (int i = 0; i != dim; ++i) {
-        if(alphas[i]) res += alphas[i]*std::log(value[i]);
+        if(alphas[i] && value[i] > 0.) res += alphas[i]*std::log(value[i]);
     }
     if (normalise) {
         float sumalphas = 0;
@@ -49,14 +49,13 @@ float dirichlet_logP(const float* value, const float* alphas, int dim, bool norm
 }
 void dirichlet_sample(random_source& R, float* res, const float* alphas, int dim) {
     float V = 0.;
+    const float small = dim*1.e-9;
     for (int i = 0; i != dim; ++i) {
         res[i] = R.gamma(alphas[i], 1.0);
         V += res[i];
     }
-    const float min = V/dim/1000.;
     for (int i = 0; i != dim; ++i) {
         res[i] /= V;
-        if (res[i] < min) res[i] = min;
     }
 }
 
@@ -95,28 +94,13 @@ float multinomial_mixture_p(float t, const float* bj, const int* cj, const int N
     return std::log(res);
 }
 float accept_logratio = 0.;
-int accept = 0;
-int reject = 0;
 void sample_multinomial_mixture(random_source& R, float* thetas, const float* alphas, int dim, float** multinomials, const int* counts_idx, const int* counts) {
     float proposal_prior[dim];
     float proposal[dim];
-    std::fill(proposal_prior, proposal_prior + dim, .1);
-    for (const int* ci = counts_idx; *ci != -1; ++ci) {
-        float max = multinomials[0][*ci];
-        float ps = 0;
-        int maxi = 0;
-        for (int i = 1; i != dim; ++i) {
-            ps += multinomials[i][*ci];
-            if (multinomials[i][*ci] > max) {
-                max = multinomials[i][*ci];
-                maxi = i;
-            }
-        }
-        if (max/ps > .8) proposal_prior[maxi] += 1;
-    }
-    //dirichlet_sample(R, proposal, proposal_prior, dim);
-    std::memcpy(proposal, thetas, sizeof(proposal));
-    add_noise(R, proposal, dim, .02);
+    for (int k = 0; k != dim; ++k) proposal_prior[k] = 128.*thetas[k];
+    dirichlet_sample(R, proposal, proposal_prior, dim);
+    //float proposal_reverseprior[dim];
+    //for (int k = 0; k != dim; ++k) proposal_reverseprior[k] = 128.*proposal[k];
 
     float logratio = 0.;
     for (const int* j = counts_idx, *cj = counts; *j != -1; ++j, ++cj) {
@@ -129,18 +113,11 @@ void sample_multinomial_mixture(random_source& R, float* thetas, const float* al
         }
         logratio += (*cj) * std::log(sum_kp/sum_kt);
     }
-    //logratio += dirichlet_logP(thetas, proposal_prior, dim)
-    //            - dirichlet_logP(proposal, proposal_prior, dim);
+    //logratio += dirichlet_logP(thetas, proposal_reverseprior, dim, true)
+    //            - dirichlet_logP(proposal, proposal_prior, dim, true);
     if (logratio > 0. || std::log(R.uniform01()) < logratio) {
-        accept_logratio += logratio;
-        ++accept;
         std::memcpy(thetas, proposal, sizeof(float)*dim);
-        //std::cout << "accept [" << logratio << "]\n";
-    } else {
-        ++reject;
-        //std::cout << "reject [" << logratio << "]\n";
     }
-
 }
 
 }
@@ -194,9 +171,6 @@ lda::lda::lda(lda_data& words, lda_parameters params)
 
 
 void lda::lda::gibbs() {
-    accept_logratio = 0.;
-    accept = 0;
-    reject = 0;
     float alphas[K_];
     std::fill(alphas, alphas + K_, alpha_);
     for (int i = 0; i != N_; ++i) {
@@ -221,14 +195,9 @@ void lda::lda::gibbs() {
                 logratio += (*cj) * std::log(sum_kp/sum_km);
             }
         }
-        //logratio += dirichlet_logP(Ti, proposal_prior, dim)
-        //            - dirichlet_logP(proposal, proposal_prior, dim);
         if (logratio > 0. || std::log(R.uniform01()) < logratio) {
             accept_logratio += logratio;
             std::memcpy(multinomials_[k], proposal, sizeof(proposal));
-            //std::cout << "accept [" << logratio << "]\n";
-        } else {
-            //std::cout << "reject [" << logratio << "]\n";
         }
     }
 }
@@ -251,9 +220,11 @@ float lda::lda::logP(bool normalise) const {
     double p = 0.;
     for (int i = 0; i != N_; ++i) {
         const float* Ti = (thetas_ + i*K_);
-        float local_p = 0;
         p += dirichlet_logP(Ti, alphas, K_, normalise);
         // compute p += \sum_j w_j  * log( \sum_k \theta_k \psi_k )
+        // we use an intermediate variable (local_p) to avoid adding really
+        // small numbers to a larger number
+        float local_p = 0;
         for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
             float sum_k = 0.;
             for (int k = 0; k != K_; ++k) {
