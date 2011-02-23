@@ -48,6 +48,7 @@ struct lda {
             delete [] thetas_;
         }
         void gibbs();
+        void forward();
         float logP() const;
 
     private:

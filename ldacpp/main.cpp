@@ -48,7 +48,11 @@ int main(int argc, char** argv) {
     params.beta =0.1; // vm["beta"].as<float>();
     //lda_state final_state = lda::lda(params, data);
     ::lda::lda state(data, params);
-    for (int i = 0; i != params.nr_iterations; ++i) state.gibbs();
+    state.forward();
+    for (int i = 0; i != params.nr_iterations; ++i) {
+        state.gibbs();
+        std::cout << state.logP() << '\n';
+    }
     return 0;
 }
 
