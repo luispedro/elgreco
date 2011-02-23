@@ -1,35 +1,10 @@
 #include <cmath>
 #include <algorithm>
 #include <cstring>
-#include <gsl/gsl_rng.h>
-#include <gsl/gsl_randist.h>
-#include <gsl/gsl_sf_gamma.h>
 
 #include "lda.h"
 
 namespace{
-struct random_source {
-    random_source(unsigned s)
-        :r(gsl_rng_alloc(gsl_rng_mt19937))
-    {
-        gsl_rng_set(r, s);
-    }
-    ~random_source() {
-        gsl_rng_free(r);
-    }
-
-
-    float uniform01() {
-        return gsl_ran_flat(r, 0., 1.);
-    }
-    float gamma(float a, float b) {
-        return gsl_ran_gamma(r, a, b);
-    }
-    private:
-       gsl_rng * r;
-};
-
-random_source R = random_source(2);
 
 float dirichlet_logP(const float* value, const float* alphas, int dim, bool normalise=true) {
     float res = 0;
@@ -123,7 +98,8 @@ void sample_multinomial_mixture(random_source& R, float* thetas, const float* al
 }
 
 lda::lda::lda(lda_data& words, lda_parameters params)
-    :K_(params.nr_topics)
+    :R(params.seed)
+    ,K_(params.nr_topics)
     ,N_(words.nr_docs())
     ,Nwords_(words.nr_terms())
     ,alpha_(params.alpha)

@@ -2,11 +2,37 @@
 #define LDA_H_INCLUDE_GUARD_LPC_ELGRECO_
 #include <vector>
 #include <iostream>
+#include <gsl/gsl_rng.h>
+#include <gsl/gsl_randist.h>
+#include <gsl/gsl_sf_gamma.h>
 
+struct random_source {
+    random_source(unsigned s)
+        :r(gsl_rng_alloc(gsl_rng_mt19937))
+    {
+        gsl_rng_set(r, s);
+    }
+    ~random_source() {
+        gsl_rng_free(r);
+    }
+
+
+    float uniform01() {
+        return gsl_ran_flat(r, 0., 1.);
+    }
+    float gamma(float a, float b) {
+        return gsl_ran_gamma(r, a, b);
+    }
+    private:
+       gsl_rng * r;
+       random_source(const random_source&);
+       random_source& operator=(const random_source&);
+};
 
 
 namespace lda {
 struct lda_parameters {
+    unsigned seed;
     int nr_topics;
     int nr_iterations;
     float alpha;
@@ -52,6 +78,7 @@ struct lda {
         float logP(bool normalise=false) const;
 
     private:
+        random_source R;
         int K_;
         int N_;
         int Nwords_;

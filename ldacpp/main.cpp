@@ -42,6 +42,7 @@ int main(int argc, char** argv) {
     lda_data data = load(fin);
     std::cout << "Loaded " << data.nr_docs() << " documents." << std::endl;
     lda_parameters params;
+    params.seed = 2;
     params.nr_topics = vm["k"].as<unsigned>();
     params.nr_iterations = vm["iters"].as<unsigned>();
     params.alpha = 0.1;// vm["alpha"].as<float>();
