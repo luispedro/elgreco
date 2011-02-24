@@ -22,6 +22,19 @@ float dirichlet_logP(const float* value, const float* alphas, int dim, bool norm
 
     return res;
 }
+float dirichlet_logP_uniform(const float* value, const float alpha, int dim, bool normalise=true) {
+    float res = 0;
+    for (int i = 0; i != dim; ++i) {
+        if(value[i] > 0.) res += std::log(value[i]);
+    }
+    res *= alpha;
+    if (normalise) {
+        res -= dim*gsl_sf_lngamma(alpha);
+        res += gsl_sf_lngamma(dim* alpha);
+    }
+
+    return res;
+}
 void dirichlet_sample(random_source& R, float* res, const float* alphas, int dim) {
     float V = 0.;
     const float small = dim*1.e-9;
@@ -151,17 +164,17 @@ void lda::lda::step() {
     float betas[Nwords_];
     std::fill(alphas, alphas + K_, alpha_);
     std::fill(betas, betas + Nwords_, beta_);
-    for (int i = 0; i != N_; ++i) {
+
+    for (int i = 0; i < N_; ++i) {
         sample_multinomial_mixture(R, thetas_ + i*K_, alphas, K_, multinomials_, counts_idx_[i], counts_[i]);
     }
-    for (int k = 0; k != K_; ++k) {
-        float scratchWords[Nwords_];
+    for (int k = 0; k < K_; ++k) {
         float proposal[Nwords_];
-        for (int j = 0; j != Nwords_; ++j) scratchWords[j] = multinomials_[k][j] + beta_;
-        dirichlet_sample(R, proposal, scratchWords, Nwords_);
+        std::memcpy(proposal, multinomials_[k], sizeof(proposal));
+        add_noise(R, proposal, Nwords_, .002);
 
-        float logratio = dirichlet_logP(proposal, betas, Nwords_)
-                        - dirichlet_logP(multinomials_[k], betas, Nwords_);
+        float logratio = dirichlet_logP_uniform(proposal, beta_, Nwords_, false)
+                        - dirichlet_logP_uniform(multinomials_[k], beta_, Nwords_, false);
         for (int i = 0; i != N_; ++i) {
             const float* Ti = (thetas_ + i *K_);
             for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
@@ -196,7 +209,7 @@ float lda::lda::logP(bool normalise) const {
     std::fill(alphas, alphas + K_, alpha_);
     std::fill(betas, betas + Nwords_, beta_);
     double p = 0.;
-    for (int i = 0; i != N_; ++i) {
+    for (int i = 0; i < N_; ++i) {
         const float* Ti = (thetas_ + i*K_);
         p += dirichlet_logP(Ti, alphas, K_, normalise);
         // compute p += \sum_j w_j  * log( \sum_k \theta_k \psi_k )
