@@ -68,7 +68,6 @@ float multinomial_mixture_p(float t, const float* bj, const int* cj, const int N
     }
     return std::log(res);
 }
-float accept_logratio = 0.;
 void sample_multinomial_mixture(random_source& R, float* thetas, const float* alphas, int dim, float** multinomials, const int* counts_idx, const int* counts) {
     float proposal_prior[dim];
     float proposal[dim];
@@ -77,7 +76,8 @@ void sample_multinomial_mixture(random_source& R, float* thetas, const float* al
     //float proposal_reverseprior[dim];
     //for (int k = 0; k != dim; ++k) proposal_reverseprior[k] = 128.*proposal[k];
 
-    float logratio = 0.;
+    float logratio = dirichlet_logP(proposal, alphas, dim)
+                    - dirichlet_logP(thetas, alphas, dim);
     for (const int* j = counts_idx, *cj = counts; *j != -1; ++j, ++cj) {
         float sum_kp = 0;
         float sum_kt = 0;
@@ -148,17 +148,20 @@ lda::lda::lda(lda_data& words, lda_parameters params)
 
 void lda::lda::gibbs() {
     float alphas[K_];
+    float betas[Nwords_];
     std::fill(alphas, alphas + K_, alpha_);
+    std::fill(betas, betas + Nwords_, beta_);
     for (int i = 0; i != N_; ++i) {
         sample_multinomial_mixture(R, thetas_ + i*K_, alphas, K_, multinomials_, counts_idx_[i], counts_[i]);
     }
-    float scratchWords[Nwords_];
     for (int k = 0; k != K_; ++k) {
+        float scratchWords[Nwords_];
         float proposal[Nwords_];
-        std::memcpy(proposal, multinomials_[k], sizeof(proposal));
-        add_noise(R, proposal, Nwords_, .02);
+        for (int j = 0; j != Nwords_; ++j) scratchWords[j] = multinomials_[k][j] + beta_;
+        dirichlet_sample(R, proposal, scratchWords, Nwords_);
 
-        float logratio = 0.;
+        float logratio = dirichlet_logP(proposal, betas, Nwords_)
+                        - dirichlet_logP(multinomials_[k], betas, Nwords_);
         for (int i = 0; i != N_; ++i) {
             const float* Ti = (thetas_ + i *K_);
             for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
@@ -172,7 +175,6 @@ void lda::lda::gibbs() {
             }
         }
         if (logratio > 0. || std::log(R.uniform01()) < logratio) {
-            accept_logratio += logratio;
             std::memcpy(multinomials_[k], proposal, sizeof(proposal));
         }
     }
