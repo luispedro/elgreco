@@ -146,7 +146,7 @@ lda::lda::lda(lda_data& words, lda_parameters params)
     }
 
 
-void lda::lda::gibbs() {
+void lda::lda::step() {
     float alphas[K_];
     float betas[Nwords_];
     std::fill(alphas, alphas + K_, alpha_);

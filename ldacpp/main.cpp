@@ -56,7 +56,7 @@ int main(int argc, char** argv) {
     state.forward();
     for (int i = 0; i != params.nr_iterations; ++i) {
         std::cout << state.logP() << '\n';
-        state.gibbs();
+        state.step();
     }
     return 0;
 }

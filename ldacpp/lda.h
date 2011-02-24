@@ -73,7 +73,7 @@ struct lda {
             delete [] multinomials_data_;
             delete [] thetas_;
         }
-        void gibbs();
+        void step();
         void forward();
         float logP(bool normalise=false) const;
 
