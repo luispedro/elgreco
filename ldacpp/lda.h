@@ -7,15 +7,29 @@
 #include <gsl/gsl_sf_gamma.h>
 
 struct random_source {
-    random_source(unsigned s)
+    random_source(unsigned s=1234567890)
         :r(gsl_rng_alloc(gsl_rng_mt19937))
     {
         gsl_rng_set(r, s);
     }
+    random_source(const random_source& rhs)
+        :r(gsl_rng_clone(rhs.r))
+        {
+        }
     ~random_source() {
         gsl_rng_free(r);
     }
 
+
+    random_source& operator = (const random_source& rhs) {
+        random_source n(rhs);
+        this->swap(n);
+        return *this;
+    }
+
+    void swap(random_source& rhs) {
+        std::swap(r, rhs.r);
+    }
 
     float uniform01() {
         return gsl_ran_flat(r, 0., 1.);
@@ -25,8 +39,6 @@ struct random_source {
     }
     private:
        gsl_rng * r;
-       random_source(const random_source&);
-       random_source& operator=(const random_source&);
 };
 
 
