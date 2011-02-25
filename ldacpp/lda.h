@@ -89,6 +89,9 @@ struct lda {
         void forward();
         float logP(bool normalise=false) const;
 
+        void print_topics(std::ostream&) const;
+        void print_words(std::ostream&) const;
+
     private:
         random_source R;
         int K_;

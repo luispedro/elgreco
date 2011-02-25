@@ -234,3 +234,24 @@ float lda::lda::logP(bool normalise) const {
     return p;
 }
 
+void lda::lda::print_topics(std::ostream& out) const {
+    float* t = thetas_;
+    for (int i = 0; i != N_; ++i) {
+        for (int k = 0; k != K_; ++k) {
+            out << *t++ << '\t';
+        }
+        out << '\n';
+    }
+}
+void lda::lda::print_words(std::ostream& out) const {
+    for (int k = 0; k != K_; ++k) {
+        float* m = multinomials_[k];
+        for (int j = 0; j != Nwords_; ++j) {
+            out << m[j] << '\t';
+        }
+        out << '\n';
+
+    }
+}
+
+

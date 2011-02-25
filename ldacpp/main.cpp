@@ -58,6 +58,10 @@ int main(int argc, char** argv) {
         std::cout << state.logP() << '\n';
         state.step();
     }
+    std::ofstream topicsf("topics.txt");
+    state.print_topics(topicsf);
+    std::ofstream wordsf("words.txt");
+    state.print_words(wordsf);
     return 0;
 }
 
