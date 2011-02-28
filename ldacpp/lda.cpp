@@ -54,15 +54,8 @@ void dirichlet_sample_uniform(random_source& R, floating* res, floating alpha, i
 }
 
 void add_noise(random_source& R, floating* res, int dim, floating avg) {
-    floating noise[dim];
-    floating mean = 0;
     for (int i = 0; i != dim; ++i) {
-        noise[i] = avg * R.uniform01();
-        mean += noise[i];
-    }
-    mean /= dim;
-    for (int i = 0; i != dim; ++i) {
-        res[i] += noise[i]-mean;
+        res[i] += avg * R.uniform01() - avg/2.;
         if (res[i] < 0) res[i] = -res[i];
         if (res[i] > 1) res[i] = 1-res[i];
     }
@@ -161,17 +154,16 @@ lda::lda::lda(lda_data& words, lda_parameters params)
 
 void lda::lda::step() {
     floating alphas[K_];
-    floating betas[Nwords_];
     std::fill(alphas, alphas + K_, alpha_);
-    std::fill(betas, betas + Nwords_, beta_);
 
     for (int i = 0; i < N_; ++i) {
         sample_multinomial_mixture(R, thetas_ + i*K_, alphas, K_, multinomials_, counts_idx_[i], counts_[i]);
     }
+    for (int n = 0; n < 20; ++n) {
     for (int k = 0; k < K_; ++k) {
         floating proposal[Nwords_];
         std::memcpy(proposal, multinomials_[k], sizeof(proposal));
-        add_noise(R, proposal, Nwords_, .002);
+        add_noise(R, proposal, Nwords_, .15);
 
         floating logratio = dirichlet_logP_uniform(proposal, beta_, Nwords_, false)
                         - dirichlet_logP_uniform(multinomials_[k], beta_, Nwords_, false);
@@ -191,6 +183,7 @@ void lda::lda::step() {
             std::memcpy(multinomials_[k], proposal, sizeof(proposal));
         }
     }
+    }
 }
 
 void lda::lda::forward() {
@@ -204,14 +197,10 @@ void lda::lda::forward() {
 
 
 floating lda::lda::logP(bool normalise) const {
-    floating alphas[K_];
-    floating betas[Nwords_];
-    std::fill(alphas, alphas + K_, alpha_);
-    std::fill(betas, betas + Nwords_, beta_);
     double p = 0.;
     for (int i = 0; i < N_; ++i) {
         const floating* Ti = (thetas_ + i*K_);
-        p += dirichlet_logP(Ti, alphas, K_, normalise);
+        p += dirichlet_logP_uniform(Ti, alpha_, K_, normalise);
         //std::cout << p << '\n';
         // compute p += \sum_j w_j  * log( \sum_k \theta_k \psi_k )
         // we use an intermediate variable (local_p) to avoid adding really
@@ -232,8 +221,9 @@ floating lda::lda::logP(bool normalise) const {
             std::cerr << "normalise not implemented.\n";
         }
     }
+    std::cout << p << '\n';
     for (int k = 0; k != K_; ++k) {
-        p += dirichlet_logP(multinomials_[k], betas, Nwords_, normalise);
+        p += dirichlet_logP_uniform(multinomials_[k], beta_, Nwords_, normalise);
         //std::cout << p << '\n';
     }
     return p;
