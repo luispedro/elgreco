@@ -6,6 +6,8 @@
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_sf_gamma.h>
 
+typedef double floating;
+
 struct random_source {
     random_source(unsigned s=1234567890)
         :r(gsl_rng_alloc(gsl_rng_mt19937))
@@ -31,10 +33,10 @@ struct random_source {
         std::swap(r, rhs.r);
     }
 
-    float uniform01() {
+    floating uniform01() {
         return gsl_ran_flat(r, 0., 1.);
     }
-    float gamma(float a, float b) {
+    floating gamma(floating a, floating b) {
         return gsl_ran_gamma(r, a, b);
     }
     private:
@@ -47,8 +49,8 @@ struct lda_parameters {
     unsigned seed;
     int nr_topics;
     int nr_iterations;
-    float alpha;
-    float beta;
+    floating alpha;
+    floating beta;
 };
 
 
@@ -87,7 +89,8 @@ struct lda {
         }
         void step();
         void forward();
-        float logP(bool normalise=false) const;
+        floating logP(bool normalise=false) const;
+        void load(std::istream& topics, std::istream& words);
 
         void print_topics(std::ostream&) const;
         void print_words(std::ostream&) const;
@@ -103,11 +106,11 @@ struct lda {
         int** counts_idx_;
         int* counts_idx_data_;
 
-        float alpha_;
-        float beta_;
-        float** multinomials_;
-        float* multinomials_data_;
-        float* thetas_;
+        floating alpha_;
+        floating beta_;
+        floating** multinomials_;
+        floating* multinomials_data_;
+        floating* thetas_;
 };
 
 }

@@ -10,14 +10,17 @@ int main(int argc, char** argv) {
     po::options_description opts("Options");
     req.add_options()
         ("input-file", po::value<std::string>(), "Input data file")
+        ("mode", po::value<std::string>()->default_value("estimate"), "Mode")
         ("k", po::value<unsigned>(), "Nr of topics")
-        ("iters", po::value<unsigned>(), "Nr of iterations")
     ;
     opts.add_options()
         ("help", "produce help message")
+        ("iters", po::value<unsigned>()->default_value(200), "Nr of iterations")
         ("alpha", po::value<float>()->default_value(.1), "Alpha value")
         ("beta", po::value<float>()->default_value(.1), "beta value")
         ("seed", po::value<unsigned>()->default_value(2), "Seed value (for random numbers)")
+        ("topics-file", po::value<std::string>()->default_value("topics.txt"), "Topics file name.")
+        ("words-file", po::value<std::string>()->default_value("words.txt"), "Words file name.")
         ("verbose", po::value<int>()->default_value(0), "Verbosity level")
     ;
 
@@ -34,7 +37,7 @@ int main(int argc, char** argv) {
         vm);
     po::notify(vm);
 
-    if (vm.count("help") || !vm.count("input-file") || !vm.count("k") || !vm.count("iters")) {
+    if (vm.count("help") || !vm.count("input-file") || !vm.count("k")) {
         std::cout << req << opts << std::endl;
         if (vm.count("help")) return 0;
         return 1;
@@ -51,17 +54,24 @@ int main(int argc, char** argv) {
     params.seed = vm["seed"].as<unsigned>();
     params.alpha = vm["alpha"].as<float>();
     params.beta = vm["beta"].as<float>();
-    //lda_state final_state = lda::lda(params, data);
+    std::string mode = vm["mode"].as<std::string>();
     ::lda::lda state(data, params);
-    state.forward();
-    for (int i = 0; i != params.nr_iterations; ++i) {
+    if (mode == "estimate") {
+        state.forward();
+        for (int i = 0; i != params.nr_iterations; ++i) {
+            std::cout << state.logP() << '\n';
+            state.step();
+        }
+        std::ofstream topicsf(vm["topics-file"].as<std::string>().c_str());
+        state.print_topics(topicsf);
+        std::ofstream wordsf(vm["words-file"].as<std::string>().c_str());
+        state.print_words(wordsf);
+    } else {
+        std::ifstream topicsf(vm["topics-file"].as<std::string>().c_str());
+        std::ifstream wordsf(vm["words-file"].as<std::string>().c_str());
+        state.load(topicsf, wordsf);
         std::cout << state.logP() << '\n';
-        state.step();
     }
-    std::ofstream topicsf("topics.txt");
-    state.print_topics(topicsf);
-    std::ofstream wordsf("words.txt");
-    state.print_words(wordsf);
     return 0;
 }
 
