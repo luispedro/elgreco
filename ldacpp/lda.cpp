@@ -53,6 +53,28 @@ void dirichlet_sample_uniform(random_source& R, floating* res, floating alpha, i
     dirichlet_sample(R, res, alphas, dim);
 }
 
+bool binomial_sample(random_source& R, floating p) {
+    return R.uniform01() < p;
+}
+
+int categorical_sample(random_source& R, const floating* ps, int dim) {
+    if (dim == 1) return 0;
+    floating cps[dim];
+    cps[0] = ps[0];
+    for (int i = 1; i != dim; ++i) {
+        cps[i] += ps[i]+ cps[i-1];
+    }
+    const floating val = cps[dim-1] * R.uniform01();
+    int a = 0, b = dim;
+    while ((a+1) < b) {
+        int m = a + (b-a)/2;
+        if (cps[m] > val) b = m;
+        else a = m;
+    }
+    return a;
+}
+
+
 void add_noise(random_source& R, floating* res, int dim, floating avg) {
     for (int i = 0; i != dim; ++i) {
         res[i] += avg * R.uniform01() - avg/2.;
@@ -64,41 +86,20 @@ void add_noise(random_source& R, floating* res, int dim, floating avg) {
     for (int i = 0; i != dim; ++i) res[i] /= ps;
 }
 
-
-
-floating multinomial_mixture_p(floating t, const floating* bj, const int* cj, const int N) {
-    floating res = 1.;
-    for (int j = 0; j != N; ++j) {
-        const floating bt = 1-bj[j]*t;
-        res *= bt;
-    }
-    return std::log(res);
-}
 void sample_multinomial_mixture(random_source& R, floating* thetas, const floating alpha, int dim, floating** multinomials, const int* counts_idx, const int* counts) {
     floating proposal_prior[dim];
-    floating proposal[dim];
-    for (int k = 0; k != dim; ++k) proposal_prior[k] = 128.*thetas[k];
-    dirichlet_sample(R, proposal, proposal_prior, dim);
-    //floating proposal_reverseprior[dim];
-    //for (int k = 0; k != dim; ++k) proposal_reverseprior[k] = 128.*proposal[k];
-
-    floating logratio = dirichlet_logP_uniform(proposal, alpha, dim)
-                    - dirichlet_logP_uniform(thetas, alpha, dim);
+    for (int k = 0; k != dim; ++k) proposal_prior[k] = alpha;
     for (const int* j = counts_idx, *cj = counts; *j != -1; ++j, ++cj) {
-        floating sum_kp = 0;
-        floating sum_kt = 0;
-        for (int k = 0; k != dim; ++k) {
-            const floating* m = multinomials[k];
-            sum_kp += proposal[k] * m[*j];
-            sum_kt += thetas[k] * m[*j];
+        for (int cji = 0; cji != (*cj); ++cji) {
+            floating post[dim];
+            std::memcpy(post, thetas, sizeof(post));
+            for (int k = 0; k != dim; ++k) {
+                post[k] = multinomials[k][*j];
+            }
+            ++proposal_prior[categorical_sample(R, post, dim)];
         }
-        logratio += (*cj) * std::log(sum_kp/sum_kt);
     }
-    //logratio += dirichlet_logP(thetas, proposal_reverseprior, dim, true)
-    //            - dirichlet_logP(proposal, proposal_prior, dim, true);
-    if (logratio > 0. || std::log(R.uniform01()) < logratio) {
-        std::memcpy(thetas, proposal, sizeof(floating)*dim);
-    }
+    dirichlet_sample(R, thetas, proposal_prior, dim);
 }
 
 }
@@ -156,28 +157,21 @@ void lda::lda::step() {
     for (int i = 0; i < N_; ++i) {
         sample_multinomial_mixture(R, thetas_ + i*K_, alpha_, K_, multinomials_, counts_idx_[i], counts_[i]);
     }
-    for (int k = 0; k < K_; ++k) {
-        floating proposal[Nwords_];
-        std::memcpy(proposal, multinomials_[k], sizeof(proposal));
-        add_noise(R, proposal, Nwords_, .15);
 
-        floating logratio = dirichlet_logP_uniform(proposal, beta_, Nwords_, false)
-                        - dirichlet_logP_uniform(multinomials_[k], beta_, Nwords_, false);
-        for (int i = 0; i != N_; ++i) {
-            const floating* Ti = (thetas_ + i *K_);
-            for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
-                floating sum_km = 0;
-                for (int k2 = 0; k2 != K_; ++k2) {
-                    sum_km += Ti[k2] * multinomials_[k2][*j];
-                }
-                floating sum_kp = sum_km;
-                sum_kp += Ti[k] * (proposal[*j] - multinomials_[k][*j]);
-                logratio += (*cj) * std::log(sum_kp/sum_km);
+    floating proposal[K_][Nwords_];
+    for (int k = 0; k < K_; ++k) {
+        for (int j = 0; j < Nwords_; ++j) proposal[k][j] = beta_;
+    }
+    for (int i = 0; i != N_; ++i) {
+        const floating* Ti = (thetas_ + i *K_);
+        for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
+            for (int cji = 0; cji != (*cj); ++cji) {
+                ++proposal[categorical_sample(R, Ti, K_)][*j];
             }
         }
-        if (logratio > 0. || std::log(R.uniform01()) < logratio) {
-            std::memcpy(multinomials_[k], proposal, sizeof(proposal));
-        }
+    }
+    for (int k = 0; k < K_; ++k) {
+        dirichlet_sample(R, multinomials_[k], proposal[k], Nwords_);
     }
 }
 
