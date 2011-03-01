@@ -74,7 +74,7 @@ floating multinomial_mixture_p(floating t, const floating* bj, const int* cj, co
     }
     return std::log(res);
 }
-void sample_multinomial_mixture(random_source& R, floating* thetas, const floating* alphas, int dim, floating** multinomials, const int* counts_idx, const int* counts) {
+void sample_multinomial_mixture(random_source& R, floating* thetas, const floating alpha, int dim, floating** multinomials, const int* counts_idx, const int* counts) {
     floating proposal_prior[dim];
     floating proposal[dim];
     for (int k = 0; k != dim; ++k) proposal_prior[k] = 128.*thetas[k];
@@ -82,8 +82,8 @@ void sample_multinomial_mixture(random_source& R, floating* thetas, const floati
     //floating proposal_reverseprior[dim];
     //for (int k = 0; k != dim; ++k) proposal_reverseprior[k] = 128.*proposal[k];
 
-    floating logratio = dirichlet_logP(proposal, alphas, dim)
-                    - dirichlet_logP(thetas, alphas, dim);
+    floating logratio = dirichlet_logP_uniform(proposal, alpha, dim)
+                    - dirichlet_logP_uniform(thetas, alpha, dim);
     for (const int* j = counts_idx, *cj = counts; *j != -1; ++j, ++cj) {
         floating sum_kp = 0;
         floating sum_kt = 0;
@@ -153,13 +153,9 @@ lda::lda::lda(lda_data& words, lda_parameters params)
 
 
 void lda::lda::step() {
-    floating alphas[K_];
-    std::fill(alphas, alphas + K_, alpha_);
-
     for (int i = 0; i < N_; ++i) {
-        sample_multinomial_mixture(R, thetas_ + i*K_, alphas, K_, multinomials_, counts_idx_[i], counts_[i]);
+        sample_multinomial_mixture(R, thetas_ + i*K_, alpha_, K_, multinomials_, counts_idx_[i], counts_[i]);
     }
-    for (int n = 0; n < 20; ++n) {
     for (int k = 0; k < K_; ++k) {
         floating proposal[Nwords_];
         std::memcpy(proposal, multinomials_[k], sizeof(proposal));
@@ -182,7 +178,6 @@ void lda::lda::step() {
         if (logratio > 0. || std::log(R.uniform01()) < logratio) {
             std::memcpy(multinomials_[k], proposal, sizeof(proposal));
         }
-    }
     }
 }
 
@@ -221,7 +216,6 @@ floating lda::lda::logP(bool normalise) const {
             std::cerr << "normalise not implemented.\n";
         }
     }
-    std::cout << p << '\n';
     for (int k = 0; k != K_; ++k) {
         p += dirichlet_logP_uniform(multinomials_[k], beta_, Nwords_, normalise);
         //std::cout << p << '\n';
