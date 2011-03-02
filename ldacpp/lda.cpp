@@ -1,6 +1,8 @@
 #include <cmath>
 #include <algorithm>
+#include <numeric>
 #include <cstring>
+#include <omp.h>
 
 #include "lda.h"
 
@@ -88,11 +90,10 @@ void add_noise(random_source& R, floating* res, int dim, floating avg) {
 
 void sample_multinomial_mixture(random_source& R, floating* thetas, const floating alpha, int dim, floating** multinomials, const int* counts_idx, const int* counts) {
     floating proposal_prior[dim];
-    for (int k = 0; k != dim; ++k) proposal_prior[k] = alpha;
+    std::fill(proposal_prior, proposal_prior + dim, alpha);
     for (const int* j = counts_idx, *cj = counts; *j != -1; ++j, ++cj) {
         for (int cji = 0; cji != (*cj); ++cji) {
             floating post[dim];
-            std::memcpy(post, thetas, sizeof(post));
             for (int k = 0; k != dim; ++k) {
                 post[k] = multinomials[k][*j];
             }
@@ -154,24 +155,39 @@ lda::lda::lda(lda_data& words, lda_parameters params)
 
 
 void lda::lda::step() {
-    for (int i = 0; i < N_; ++i) {
-        sample_multinomial_mixture(R, thetas_ + i*K_, alpha_, K_, multinomials_, counts_idx_[i], counts_[i]);
-    }
+    random_source R2 = R;
+    R.uniform01();
+    floating proposal[K_ * Nwords_];
+    std::fill(proposal, proposal + K_*Nwords_, beta_);
 
-    floating proposal[K_][Nwords_];
-    for (int k = 0; k < K_; ++k) {
-        for (int j = 0; j < Nwords_; ++j) proposal[k][j] = beta_;
-    }
-    for (int i = 0; i != N_; ++i) {
-        const floating* Ti = (thetas_ + i *K_);
-        for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
-            for (int cji = 0; cji != (*cj); ++cji) {
-                ++proposal[categorical_sample(R, Ti, K_)][*j];
+    #pragma omp parallel firstprivate(R2) shared(proposal)
+    {
+        floating* priv_proposal = new floating[K_*Nwords_];
+        std::fill(priv_proposal, priv_proposal + K_*Nwords_, 0.);
+        //std::cout << "step(): " << (void*)priv_proposal << '\n';
+        #pragma omp for
+        for (int i = 0; i < N_; ++i) {
+            floating* Ti = (thetas_ + i *K_);
+            sample_multinomial_mixture(R2, Ti, alpha_, K_, multinomials_, counts_idx_[i], counts_[i]);
+            for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
+                for (int cji = 0; cji != (*cj); ++cji) {
+                    ++priv_proposal[categorical_sample(R2, Ti, K_)*Nwords_ + *j];
+                }
             }
         }
-    }
-    for (int k = 0; k < K_; ++k) {
-        dirichlet_sample(R, multinomials_[k], proposal[k], Nwords_);
+
+        #pragma omp critical
+        {
+            floating* p = priv_proposal;
+            for (int kj = 0; kj < K_*Nwords_; ++kj) proposal[kj] += *p++;
+        }
+        delete [] priv_proposal;
+
+        #pragma omp barrier
+        #pragma omp for
+        for (int k = 0; k < K_; ++k) {
+            dirichlet_sample(R2, multinomials_[k], proposal+ k*Nwords_, Nwords_);
+        }
     }
 }
 
@@ -187,6 +203,7 @@ void lda::lda::forward() {
 
 floating lda::lda::logP(bool normalise) const {
     double p = 0.;
+    #pragma omp parallel for reduction(+:p)
     for (int i = 0; i < N_; ++i) {
         const floating* Ti = (thetas_ + i*K_);
         p += dirichlet_logP_uniform(Ti, alpha_, K_, normalise);
