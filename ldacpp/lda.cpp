@@ -122,7 +122,7 @@ lda::lda::lda(lda_data& words, lda_parameters params)
         multinomials_ = new floating*[K_];
         multinomials_data_ = new floating[K_ * Nwords_];
         for (int k = 0; k != K_; ++k) {
-            multinomials_[k] = multinomials_data_ + k;
+            multinomials_[k] = multinomials_data_ + k*Nwords_;
         }
         counts_ = new int*[N_];
         counts_data_ = new int[Nitems]; // this is actually an overestimate, but that's fine
