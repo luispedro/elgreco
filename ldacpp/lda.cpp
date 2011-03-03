@@ -59,14 +59,18 @@ bool binomial_sample(random_source& R, floating p) {
     return R.uniform01() < p;
 }
 
-int categorical_sample(random_source& R, const floating* ps, int dim) {
-    if (dim == 1) return 0;
-    floating cps[dim];
-    cps[0] = ps[0];
-    for (int i = 1; i != dim; ++i) {
-        cps[i] += ps[i]+ cps[i-1];
+int categorical_sample_norm(random_source& R, const floating* ps, int dim) {
+    const floating val = R.uniform01();
+    floating s = 0;
+    for (int i = 0; i != dim; ++i) {
+        s += ps[i];
+        if (val < s) return i;
     }
-    const floating val = cps[dim-1] * R.uniform01();
+    return dim - 1;
+}
+
+int categorical_sample_cps(random_source& R, const floating* cps, int dim) {
+    const floating val = R.uniform01();
     int a = 0, b = dim;
     while ((a+1) < b) {
         int m = a + (b-a)/2;
@@ -74,6 +78,19 @@ int categorical_sample(random_source& R, const floating* ps, int dim) {
         else a = m;
     }
     return a;
+}
+
+int categorical_sample(random_source& R, const floating* ps, int dim) {
+    if (dim == 1) return 0;
+    floating cps[dim];
+    cps[0] = ps[0];
+    for (int i = 1; i != dim; ++i) {
+        cps[i] += ps[i]+ cps[i-1];
+    }
+    for (int i = 1; i != dim; ++i) {
+        cps[i] /= cps[dim-1];
+    }
+    return categorical_sample_cps(R, cps, dim);
 }
 
 
@@ -88,16 +105,12 @@ void add_noise(random_source& R, floating* res, int dim, floating avg) {
     for (int i = 0; i != dim; ++i) res[i] /= ps;
 }
 
-void sample_multinomial_mixture(random_source& R, floating* thetas, const floating alpha, int dim, floating** multinomials, const int* counts_idx, const int* counts) {
+void sample_multinomial_mixture(random_source& R, floating* thetas, const floating alpha, int dim, floating* multinomials, const int* counts_idx, const int* counts) {
     floating proposal_prior[dim];
     std::fill(proposal_prior, proposal_prior + dim, alpha);
     for (const int* j = counts_idx, *cj = counts; *j != -1; ++j, ++cj) {
         for (int cji = 0; cji != (*cj); ++cji) {
-            floating post[dim];
-            for (int k = 0; k != dim; ++k) {
-                post[k] = multinomials[k][*j];
-            }
-            ++proposal_prior[categorical_sample(R, post, dim)];
+            ++proposal_prior[categorical_sample_cps(R, multinomials + dim*(*j), dim)];
         }
     }
     dirichlet_sample(R, thetas, proposal_prior, dim);
@@ -159,19 +172,32 @@ void lda::lda::step() {
     R.uniform01();
     floating proposal[K_ * Nwords_];
     std::fill(proposal, proposal + K_*Nwords_, beta_);
+    floating crossed[K_ * Nwords_];
 
-    #pragma omp parallel firstprivate(R2) shared(proposal)
+    #pragma omp parallel firstprivate(R2) shared(proposal, crossed)
     {
         floating* priv_proposal = new floating[K_*Nwords_];
         std::fill(priv_proposal, priv_proposal + K_*Nwords_, 0.);
         //std::cout << "step(): " << (void*)priv_proposal << '\n';
         #pragma omp for
+        for (int j = 0; j < Nwords_; ++j) {
+            floating s = 0;
+            floating* crossed_j = crossed + j*K_;
+            crossed_j[0] = multinomials_[0][j];
+            for (int k = 1; k < K_; ++k) {
+                crossed_j[k] = crossed_j[k - 1] + multinomials_[k][j];
+            }
+            for (int k = 0; k < K_; ++k) {
+                crossed_j[k] /= crossed_j[K_-1];
+            }
+        }
+        #pragma omp for
         for (int i = 0; i < N_; ++i) {
             floating* Ti = (thetas_ + i *K_);
-            sample_multinomial_mixture(R2, Ti, alpha_, K_, multinomials_, counts_idx_[i], counts_[i]);
+            sample_multinomial_mixture(R2, Ti, alpha_, K_, crossed, counts_idx_[i], counts_[i]);
             for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
                 for (int cji = 0; cji != (*cj); ++cji) {
-                    ++priv_proposal[categorical_sample(R2, Ti, K_)*Nwords_ + *j];
+                    ++priv_proposal[categorical_sample_norm(R2, Ti, K_)*Nwords_ + *j];
                 }
             }
         }
