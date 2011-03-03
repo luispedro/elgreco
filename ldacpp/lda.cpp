@@ -373,6 +373,7 @@ void lda::lda_uncollapsed::print_topics(std::ostream& out) const {
         out << '\n';
     }
 }
+
 void lda::lda_uncollapsed::print_words(std::ostream& out) const {
     for (int k = 0; k != K_; ++k) {
         floating* m = multinomials_[k];
@@ -381,6 +382,43 @@ void lda::lda_uncollapsed::print_words(std::ostream& out) const {
         }
         out << '\n';
 
+    }
+}
+void lda::lda_collapsed::print_words(std::ostream& out) const {
+    floating multinomials[Nwords_];
+    for (int k = 0; k != K_; ++k) {
+        std::fill(multinomials, multinomials + Nwords_, beta_);
+        const int* z = z_;
+        for (int i = 0; i != N_; ++i) {
+            for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
+                for (int cji = 0; cji != (*cj); ++cji) {
+                    if (*z++ == k) ++multinomials[*j];
+                }
+            }
+        }
+        const floating sum_m = std::accumulate(multinomials, multinomials + Nwords_, 0.);
+        for (int j = 0; j != Nwords_; ++j) {
+            out << multinomials[j]/sum_m << '\t';
+        }
+        out << '\n';
+    }
+}
+
+void lda::lda_collapsed::print_topics(std::ostream& out) const {
+    floating thetas[K_];
+    const int* z = z_;
+    for (int i = 0; i != N_; ++i) {
+        std::fill(thetas, thetas + K_, alpha_);
+        for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
+            for (int cji = 0; cji != (*cj); ++cji) {
+                ++thetas[*z++];
+            }
+        }
+        const floating sum_t = std::accumulate(thetas, thetas + K_, 0.);
+        for (int k = 0; k != K_; ++k) {
+            out << thetas[k]/sum_t << '\t';
+        }
+        out << '\n';
     }
 }
 

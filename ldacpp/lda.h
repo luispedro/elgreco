@@ -91,6 +91,8 @@ struct lda_base {
         virtual void forward() = 0;
         virtual floating logP(bool normalise=false) const = 0;
 
+        virtual void print_topics(std::ostream&) const = 0;
+        virtual void print_words(std::ostream&) const = 0;
     protected:
         random_source R;
         int K_;
@@ -142,6 +144,8 @@ struct lda_collapsed : lda_base {
         virtual void forward();
         virtual floating logP(bool normalise=false) const;
 
+        void print_topics(std::ostream&) const;
+        void print_words(std::ostream&) const;
     private:
         int* z_;
         int** zi_;
