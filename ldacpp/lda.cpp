@@ -70,12 +70,14 @@ int categorical_sample_norm(random_source& R, const floating* ps, int dim) {
 }
 
 int categorical_sample_cps(random_source& R, const floating* cps, int dim) {
-    const floating val = R.uniform01();
+    floating val = R.uniform01();
+    if (val < cps[0]) return 0;
+    val += cps[0];
     int a = 0, b = dim;
     while ((a+1) < b) {
         int m = a + (b-a)/2;
-        if (cps[m] > val) b = m;
-        else a = m;
+        if (val > cps[m]) a = m;
+        else b = m;
     }
     return a;
 }
