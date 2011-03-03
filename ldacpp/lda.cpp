@@ -85,9 +85,9 @@ int categorical_sample(random_source& R, const floating* ps, int dim) {
     floating cps[dim];
     cps[0] = ps[0];
     for (int i = 1; i != dim; ++i) {
-        cps[i] += ps[i]+ cps[i-1];
+        cps[i] = ps[i]+ cps[i-1];
     }
-    for (int i = 1; i != dim; ++i) {
+    for (int i = 0; i != dim; ++i) {
         cps[i] /= cps[dim-1];
     }
     return categorical_sample_cps(R, cps, dim);
