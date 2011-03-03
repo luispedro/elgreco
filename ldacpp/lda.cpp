@@ -260,9 +260,10 @@ void lda::lda_uncollapsed::step() {
         for (int i = 0; i < N_; ++i) {
             floating* Ti = (thetas_ + i *K_);
             sample_multinomial_mixture(R2, Ti, alpha_, K_, multinomials_, counts_idx_[i], counts_[i]);
+            for (int k = 1; k != K_; ++k) Ti[k] += Ti[k-1];
             for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
                 for (int cji = 0; cji != (*cj); ++cji) {
-                    ++priv_proposal[categorical_sample_norm(R2, Ti, K_)*Nwords_ + *j];
+                    ++priv_proposal[categorical_sample_cps(R2, Ti, K_)*Nwords_ + *j];
                 }
             }
         }
@@ -275,10 +276,16 @@ void lda::lda_uncollapsed::step() {
         delete [] priv_proposal;
 
         #pragma omp barrier
-        #pragma omp for
+        #pragma omp for nowait
         for (int k = 0; k < K_; ++k) {
             dirichlet_sample(R2, multinomials_[k], proposal+ k*Nwords_, Nwords_);
         }
+        #pragma omp for
+        for (int i = 0; i < N_; ++i) {
+            floating* Ti = (thetas_ + i *K_);
+            for (int k = K_-1; k > 0; --k) Ti[k] -= Ti[k-1];
+        }
+
     }
 }
 
