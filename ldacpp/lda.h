@@ -39,6 +39,9 @@ struct random_source {
     floating gamma(floating a, floating b) {
         return gsl_ran_gamma(r, a, b);
     }
+    int random_int(int a, int b) {
+        return int(gsl_ran_flat(r, double(a),double(b)));
+    }
     private:
        gsl_rng * r;
 };
@@ -75,27 +78,20 @@ struct lda_data {
 
 lda_data load(std::istream &in);
 
-struct lda {
+struct lda_base {
     public:
-        lda(lda_data& data, lda_parameters params);
-        ~lda() {
+        lda_base(lda_data& data, lda_parameters params);
+        ~lda_base() {
             delete [] counts_;
             delete [] counts_data_;
             delete [] counts_idx_;
             delete [] counts_idx_data_;
-            delete [] multinomials_;
-            delete [] multinomials_data_;
-            delete [] thetas_;
         }
-        void step();
-        void forward();
-        floating logP(bool normalise=false) const;
-        void load(std::istream& topics, std::istream& words);
+        virtual void step() = 0;
+        virtual void forward() = 0;
+        virtual floating logP(bool normalise=false) const = 0;
 
-        void print_topics(std::ostream&) const;
-        void print_words(std::ostream&) const;
-
-    private:
+    protected:
         random_source R;
         int K_;
         int N_;
@@ -108,9 +104,51 @@ struct lda {
 
         floating alpha_;
         floating beta_;
+};
+struct lda_uncollapsed : lda_base {
+    public:
+        lda_uncollapsed(lda_data& data, lda_parameters params);
+        ~lda_uncollapsed() {
+            delete [] multinomials_data_;
+            delete [] multinomials_;
+            delete [] thetas_;
+        }
+        virtual void step();
+        virtual void forward();
+        virtual floating logP(bool normalise=false) const;
+        void load(std::istream& topics, std::istream& words);
+
+        void print_topics(std::ostream&) const;
+        void print_words(std::ostream&) const;
+
+    private:
         floating** multinomials_;
         floating* multinomials_data_;
         floating* thetas_;
+};
+
+struct lda_collapsed : lda_base {
+    public:
+        lda_collapsed(lda_data& data, lda_parameters params);
+        ~lda_collapsed() {
+            delete [] z_;
+            delete [] zi_;
+            delete [] topic_;
+            delete [] topic_count_;
+            delete [] topic_sum_;
+            delete [] topic_term_;
+        }
+        virtual void step();
+        virtual void forward();
+        virtual floating logP(bool normalise=false) const;
+
+    private:
+        int* z_;
+        int** zi_;
+        int* topic_;
+        int** topic_count_;
+        int* topic_sum_;
+        int** topic_term_;
 };
 
 }

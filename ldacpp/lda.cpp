@@ -135,25 +135,18 @@ void sample_multinomial_mixture(random_source& R, floating* thetas, const floati
 
 }
 
-lda::lda::lda(lda_data& words, lda_parameters params)
+lda::lda_base::lda_base(lda_data& words, lda_parameters params)
     :R(params.seed)
     ,K_(params.nr_topics)
     ,N_(words.nr_docs())
     ,Nwords_(words.nr_terms())
     ,alpha_(params.alpha)
     ,beta_(params.beta) {
-        thetas_ = new floating[N_ * K_];
-
         int Nitems = 0;
         for (int i = 0; i != words.nr_docs(); ++i) {
             std::sort(words.at(i).begin(), words.at(i).end());
             if (words.at(i).back() > Nwords_) Nwords_ = words.at(i).back();
             Nitems += words.size(i);
-        }
-        multinomials_ = new floating*[K_];
-        multinomials_data_ = new floating[K_ * Nwords_];
-        for (int k = 0; k != K_; ++k) {
-            multinomials_[k] = multinomials_data_ + k*Nwords_;
         }
         counts_ = new int*[N_];
         counts_data_ = new int[Nitems]; // this is actually an overestimate, but that's fine
@@ -182,9 +175,75 @@ lda::lda::lda(lda_data& words, lda_parameters params)
             *j++ = -1;
         }
     }
+lda::lda_uncollapsed::lda_uncollapsed(lda_data& words, lda_parameters params)
+    :lda_base(words, params) {
+        thetas_ = new floating[N_ * K_];
+        multinomials_ = new floating*[K_];
+        multinomials_data_ = new floating[K_ * Nwords_];
+        for (int k = 0; k != K_; ++k) {
+            multinomials_[k] = multinomials_data_ + k*Nwords_;
+        }
+    }
 
+lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
+    :lda_base(words, params) {
+        z_ = new int[words.nr_words()];
+        zi_ = new int*[N_+1];
+        zi_[0] = z_;
+        int* zinext = z_;
+        for (int i = 0; i != N_; ++i) {
+            for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
+                for (int cij = 0; cij != *cj; ++cij) {
+                    ++zinext;
+                }
+            }
+            zi_[i+1] = zinext;
+        }
+        topic_ = new int[K_];
+        topic_count_ = new int*[N_];
+        topic_count_[0] = new int[N_*K_];
+        for (int m = 1; m != N_; ++m) {
+            topic_count_[m] = topic_count_[m-1]+K_;
+        }
+        topic_term_ = new int*[Nwords_];
+        topic_term_[0] = new int[Nwords_*K_];
+        for (int t = 1; t != Nwords_; ++t) {
+            topic_term_[t] = topic_term_[t-1] + K_;
+        }
+        topic_sum_ = new int[N_];
+    }
 
-void lda::lda::step() {
+void lda::lda_collapsed::step() {
+    int* z = z_;
+    for (int i = 0; i != N_; ++i) {
+        for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
+            for (int cij = 0; cij != *cj; ++cij) {
+                floating p[K_];
+                const int ok = *z;
+                --topic_count_[i][ok];
+                --topic_sum_[i];
+                --topic_[ok];
+                --topic_term_[*j][ok];
+                for (int k = 0; k != K_; ++k) {
+                    p[k] = (topic_term_[*j][k] + beta_)/
+                                (topic_[k] + beta_) *
+                        (topic_count_[i][k] + alpha_)/
+                                (topic_sum_[i] + alpha_ - 1);
+                    if (k > 0) p[k] += p[k-1];
+                }
+                for (int k = 0; k != K_; ++k) p[k] /= p[K_-1];
+                const int k = categorical_sample_cps(R, p, K_);
+
+                *z++ = k;
+                ++topic_count_[i][k];
+                ++topic_sum_[i];
+                ++topic_[k];
+                ++topic_term_[*j][k];
+            }
+        }
+    }
+}
+void lda::lda_uncollapsed::step() {
     random_source R2 = R;
     R.uniform01();
     floating proposal[K_ * Nwords_];
@@ -221,7 +280,7 @@ void lda::lda::step() {
     }
 }
 
-void lda::lda::forward() {
+void lda::lda_uncollapsed::forward() {
     for (int i = 0; i != N_; ++i) {
         dirichlet_sample_uniform(R, thetas_ + i*K_, alpha_, K_);
     }
@@ -230,8 +289,25 @@ void lda::lda::forward() {
     }
 }
 
+void lda::lda_collapsed::forward() {
+    std::fill(topic_, topic_ + K_, 0);
+    int* z = z_;
+    for (int i = 0; i != N_; ++i) {
+        for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
+            for (int cji = 0; cji != (*cj); ++cji) {
+                const int k = R.random_int(0, K_);
+                *z++ = k;
+                ++topic_count_[i][k];
+                ++topic_sum_[i];
+                ++topic_term_[*j][k];
+                ++topic_[k];
+            }
+        }
+    }
+}
 
-floating lda::lda::logP(bool normalise) const {
+
+floating lda::lda_uncollapsed::logP(bool normalise) const {
     double p = 0.;
     #pragma omp parallel for reduction(+:p)
     for (int i = 0; i < N_; ++i) {
@@ -264,7 +340,31 @@ floating lda::lda::logP(bool normalise) const {
     return p;
 }
 
-void lda::lda::print_topics(std::ostream& out) const {
+floating lda::lda_collapsed::logP(bool normalise) const {
+    floating logp = 0;
+    if (normalise) {
+        logp += N_ * ( gsl_sf_lngamma(K_ * alpha_) - K_* gsl_sf_lngamma(alpha_));
+    }
+    #pragma omp parallel for reduction(+:logp)
+    for (int i = 0; i < N_; ++i) {
+        const int* zi = zi_[i];
+        floating counts[K_];
+        int count = 0;
+        std::fill(counts, counts + K_, 0);
+        for (const int* zi = zi_[i]; zi != zi_[i+1]; ++zi) {
+            ++counts[*zi];
+            ++count;
+        }
+        for (int k = 0; k != K_; ++k) {
+            logp += gsl_sf_lngamma(counts[k] + alpha_);
+        }
+        logp -= gsl_sf_lngamma(count + K_*alpha_);
+    }
+    return logp;
+}
+
+
+void lda::lda_uncollapsed::print_topics(std::ostream& out) const {
     const floating* t = thetas_;
     for (int i = 0; i != N_; ++i) {
         for (int k = 0; k != K_; ++k) {
@@ -273,7 +373,7 @@ void lda::lda::print_topics(std::ostream& out) const {
         out << '\n';
     }
 }
-void lda::lda::print_words(std::ostream& out) const {
+void lda::lda_uncollapsed::print_words(std::ostream& out) const {
     for (int k = 0; k != K_; ++k) {
         floating* m = multinomials_[k];
         for (int j = 0; j != Nwords_; ++j) {
@@ -284,7 +384,7 @@ void lda::lda::print_words(std::ostream& out) const {
     }
 }
 
-void lda::lda::load(std::istream& topics, std::istream& words) {
+void lda::lda_uncollapsed::load(std::istream& topics, std::istream& words) {
     floating* t = thetas_;
     for (int i = 0; i != N_*K_; ++i) {
         topics >> *t++;

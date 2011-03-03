@@ -55,7 +55,7 @@ int main(int argc, char** argv) {
     params.alpha = vm["alpha"].as<float>();
     params.beta = vm["beta"].as<float>();
     std::string mode = vm["mode"].as<std::string>();
-    ::lda::lda state(data, params);
+    ::lda::lda_collapsed state(data, params);
     if (mode == "estimate") {
         state.forward();
         for (int i = 0; i != params.nr_iterations; ++i) {
@@ -63,14 +63,14 @@ int main(int argc, char** argv) {
             state.step();
         }
         std::ofstream topicsf(vm["topics-file"].as<std::string>().c_str());
-        state.print_topics(topicsf);
+        //state.print_topics(topicsf);
         std::ofstream wordsf(vm["words-file"].as<std::string>().c_str());
-        state.print_words(wordsf);
+        //state.print_words(wordsf);
     } else {
         std::ifstream topicsf(vm["topics-file"].as<std::string>().c_str());
         std::ifstream wordsf(vm["words-file"].as<std::string>().c_str());
-        state.load(topicsf, wordsf);
-        std::cout << state.logP() << '\n';
+        //state.load(topicsf, wordsf);
+        //std::cout << state.logP() << '\n';
     }
     return 0;
 }
