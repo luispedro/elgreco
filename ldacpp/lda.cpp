@@ -237,9 +237,10 @@ void lda::lda_uncollapsed::step() {
             std::fill(Tp, Tp + K_, alpha_);
             floating p[K_];
             for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
-                std::memcpy(p, Ti, sizeof(p));
                 floating* crossed_j = crossed + (*j)*K_;
-                for (int k = 0; k != K_; ++k) p[k] *= crossed_j[k];
+                for (int k = 0; k != K_; ++k) {
+                    p[k] = Ti[k]*crossed_j[k];
+                }
                 ps_to_cps(p, K_);
                 for (int cji = 0; cji != (*cj); ++cji) {
                     int z = categorical_sample_cps(R2, p, K_);
