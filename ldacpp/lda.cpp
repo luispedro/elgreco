@@ -456,14 +456,25 @@ void lda::lda_uncollapsed::load(std::istream& topics, std::istream& words) {
     if (!topics) {
         std::cerr << "Error reading topics file.\n";
     }
-    for (int k = 0; k != K_; ++k) {
-        floating* m = multinomials_[k];
-        for (int j = 0; j != Nwords_; ++j) {
-            words >> *m++;
+    for (int i = 0; i != N_; ++i) {
+        const floating sum = std::accumulate(thetas_ + i *K_, thetas_ + (i+1)*K_, 0.);
+        if (sum < .95 || sum > 1.05) {
+            std::cerr << "Malformed topics file (entry: " << i << ")\n";
         }
+    }
+
+    floating* m = multinomials_[0];
+    for (int kj = 0; kj != Nwords_*K_; ++kj) {
+        words >> *m++;
     }
     if (!words) {
         std::cerr << "Error reading words file.\n";
+    }
+    for (int k = 0; k != K_; ++k) {
+        const floating sum = std::accumulate(multinomials_[k], multinomials_[k] + Nwords_, 0.);
+        if (sum < .95 || sum > 1.05) {
+            std::cerr << "Malformed words file (entry: " << k << ")\n";
+        }
     }
 }
 
