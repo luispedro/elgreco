@@ -100,46 +100,6 @@ int categorical_sample(random_source& R, const floating* ps, int dim) {
     return categorical_sample_cps(R, cps, dim);
 }
 
-
-void add_noise(random_source& R, floating* res, int dim, floating avg) {
-    for (int i = 0; i != dim; ++i) {
-        res[i] += avg * R.uniform01() - avg/2.;
-        if (res[i] < 0) res[i] = -res[i];
-        if (res[i] > 1) res[i] = 1-res[i];
-    }
-    floating ps = 0;
-    for (int i = 0; i != dim; ++i) ps += res[i];
-    for (int i = 0; i != dim; ++i) res[i] /= ps;
-}
-
-void sample_multinomial_mixture(random_source& R, floating* thetas, const floating alpha, int dim, floating** multinomials, const int* counts_idx, const int* counts) {
-    floating proposal_prior[dim];
-    for (int k = 0; k != dim; ++k) proposal_prior[k] = alpha;
-    floating proposal[dim];
-    for (int k = 0; k != dim; ++k) proposal_prior[k] = 32.*thetas[k];
-    dirichlet_sample(R, proposal, proposal_prior, dim);
-    //floating proposal_reverseprior[dim];
-    //for (int k = 0; k != dim; ++k) proposal_reverseprior[k] = 128.*proposal[k];
-
-    floating logratio = dirichlet_logP_uniform(proposal, alpha, dim)
-                    - dirichlet_logP_uniform(thetas, alpha, dim);
-     for (const int* j = counts_idx, *cj = counts; *j != -1; ++j, ++cj) {
-        floating sum_kp = 0;
-        floating sum_kt = 0;
-        for (int k = 0; k != dim; ++k) {
-            const floating* m = multinomials[k];
-            sum_kp += proposal[k] * m[*j];
-            sum_kt += thetas[k] * m[*j];
-         }
-        logratio += (*cj) * std::log(sum_kp/sum_kt);
-    }
-    //logratio += dirichlet_logP(thetas, proposal_reverseprior, dim, true)
-    //            - dirichlet_logP(proposal, proposal_prior, dim, true);
-    if (logratio > 0. || std::log(R.uniform01()) < logratio) {
-        std::memcpy(thetas, proposal, sizeof(floating)*dim);
-    }
-}
-
 }
 
 lda::lda_base::lda_base(lda_data& words, lda_parameters params)
@@ -261,7 +221,6 @@ void lda::lda_uncollapsed::step() {
     {
         floating* priv_proposal = new floating[K_*Nwords_];
         std::fill(priv_proposal, priv_proposal + K_*Nwords_, 0.);
-        //std::cout << "step(): " << (void*)priv_proposal << '\n';
         #pragma omp for
         for (int j = 0; j < Nwords_; ++j) {
             floating* crossed_j = crossed + j*K_;
