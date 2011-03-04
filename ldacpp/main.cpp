@@ -17,6 +17,7 @@ int main(int argc, char** argv) {
     opts.add_options()
         ("help", "produce help message")
         ("iters", po::value<unsigned>()->default_value(200), "Nr of iterations")
+        ("sampler", po::value<std::string>()->default_value("uncollapsed"), "Sampler to use")
         ("print-iters", po::value<unsigned>()->default_value(10), "Iterations between printing logP (set to zero for no output)")
         ("alpha", po::value<float>()->default_value(.1), "Alpha value")
         ("beta", po::value<float>()->default_value(.1), "beta value")
@@ -66,7 +67,7 @@ int main(int argc, char** argv) {
             state.reset(new lda_collapsed(data, params));
         }
         state->forward();
-        const int print_iters = vm["print-iters"].as<int>();
+        const unsigned print_iters = vm["print-iters"].as<unsigned>();
         for (int i = 0; i != params.nr_iterations; ++i) {
             state->step();
             if (print_iters && (i % print_iters) == 0) {
