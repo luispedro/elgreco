@@ -1,4 +1,5 @@
 #include <boost/program_options.hpp>
+#include <boost/scoped_ptr.hpp>
 #include <fstream>
 
 #include "lda.h"
@@ -16,6 +17,7 @@ int main(int argc, char** argv) {
     opts.add_options()
         ("help", "produce help message")
         ("iters", po::value<unsigned>()->default_value(200), "Nr of iterations")
+        ("print-iters", po::value<unsigned>()->default_value(10), "Iterations between printing logP (set to zero for no output)")
         ("alpha", po::value<float>()->default_value(.1), "Alpha value")
         ("beta", po::value<float>()->default_value(.1), "beta value")
         ("seed", po::value<unsigned>()->default_value(2), "Seed value (for random numbers)")
@@ -55,17 +57,26 @@ int main(int argc, char** argv) {
     params.alpha = vm["alpha"].as<float>();
     params.beta = vm["beta"].as<float>();
     std::string mode = vm["mode"].as<std::string>();
+    std::string sampler = vm["sampler"].as<std::string>();
     if (mode == "estimate") {
-        ::lda::lda_collapsed state(data, params);
-        state.forward();
+        boost::scoped_ptr<lda_base> state;
+        if (sampler == "uncollapsed") {
+            state.reset(new lda_uncollapsed(data, params));
+        } else {
+            state.reset(new lda_collapsed(data, params));
+        }
+        state->forward();
+        const int print_iters = vm["print-iters"].as<int>();
         for (int i = 0; i != params.nr_iterations; ++i) {
-            std::cout << state.logP() << '\n';
-            state.step();
+            state->step();
+            if (print_iters && (i % print_iters) == 0) {
+                std::cout << state->logP() << '\n';
+            }
         }
         std::ofstream topicsf(vm["topics-file"].as<std::string>().c_str());
-        state.print_topics(topicsf);
+        state->print_topics(topicsf);
         std::ofstream wordsf(vm["words-file"].as<std::string>().c_str());
-        state.print_words(wordsf);
+        state->print_words(wordsf);
     } else {
         ::lda::lda_uncollapsed state(data, params);
         std::ifstream topicsf(vm["topics-file"].as<std::string>().c_str());
