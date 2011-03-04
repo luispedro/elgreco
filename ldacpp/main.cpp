@@ -69,10 +69,13 @@ int main(int argc, char** argv) {
         state->forward();
         const unsigned print_iters = vm["print-iters"].as<unsigned>();
         for (int i = 0; i != params.nr_iterations; ++i) {
-            state->step();
             if (print_iters && (i % print_iters) == 0) {
                 std::cout << state->logP() << '\n';
             }
+            state->step();
+        }
+        if (print_iters) {
+            std::cout << state->logP() << '\n';
         }
         std::ofstream topicsf(vm["topics-file"].as<std::string>().c_str());
         state->print_topics(topicsf);
