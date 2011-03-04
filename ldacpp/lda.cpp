@@ -82,6 +82,12 @@ int categorical_sample_cps(random_source& R, const floating* cps, int dim) {
     return a;
 }
 
+inline
+void ps_to_cps(floating* ps, int dim) {
+    for (int i = 1; i != dim; ++i) ps[i] += ps[i-1];
+    for (int i = 0; i != dim; ++i) ps[i] /= ps[dim-1];
+}
+
 int categorical_sample(random_source& R, const floating* ps, int dim) {
     if (dim == 1) return 0;
     floating cps[dim];
@@ -249,23 +255,41 @@ void lda::lda_uncollapsed::step() {
     random_source R2 = R;
     R.uniform01();
     floating proposal[K_ * Nwords_];
+    floating crossed[K_ * Nwords_];
     std::fill(proposal, proposal + K_*Nwords_, beta_);
 
-    #pragma omp parallel firstprivate(R2) shared(proposal)
+    #pragma omp parallel firstprivate(R2) shared(proposal, crossed)
     {
         floating* priv_proposal = new floating[K_*Nwords_];
         std::fill(priv_proposal, priv_proposal + K_*Nwords_, 0.);
         //std::cout << "step(): " << (void*)priv_proposal << '\n';
         #pragma omp for
+        for (int j = 0; j < Nwords_; ++j) {
+            floating* crossed_j = crossed + j*K_;
+            for (int k = 0; k != K_; ++k) {
+                crossed_j[k] = 32.*multinomials_[k][j];
+            }
+        }
+
+
+        #pragma omp for
         for (int i = 0; i < N_; ++i) {
             floating* Ti = (thetas_ + i *K_);
-            sample_multinomial_mixture(R2, Ti, alpha_, K_, multinomials_, counts_idx_[i], counts_[i]);
-            for (int k = 1; k != K_; ++k) Ti[k] += Ti[k-1];
+            floating Tp[K_];
+            std::fill(Tp, Tp + K_, alpha_);
+            floating p[K_];
             for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
+                std::memcpy(p, Ti, sizeof(p));
+                floating* crossed_j = crossed + (*j)*K_;
+                for (int k = 0; k != K_; ++k) p[k] *= crossed_j[k];
+                ps_to_cps(p, K_);
                 for (int cji = 0; cji != (*cj); ++cji) {
-                    ++priv_proposal[categorical_sample_cps(R2, Ti, K_)*Nwords_ + *j];
+                    int z = categorical_sample_cps(R2, p, K_);
+                    ++priv_proposal[z*Nwords_ + *j];
+                    ++Tp[z];
                 }
             }
+            dirichlet_sample(R2, Ti, Tp, K_);
         }
 
         #pragma omp critical
@@ -280,12 +304,6 @@ void lda::lda_uncollapsed::step() {
         for (int k = 0; k < K_; ++k) {
             dirichlet_sample(R2, multinomials_[k], proposal+ k*Nwords_, Nwords_);
         }
-        #pragma omp for
-        for (int i = 0; i < N_; ++i) {
-            floating* Ti = (thetas_ + i *K_);
-            for (int k = K_-1; k > 0; --k) Ti[k] -= Ti[k-1];
-        }
-
     }
 }
 
