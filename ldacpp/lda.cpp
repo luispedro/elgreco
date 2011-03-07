@@ -148,12 +148,12 @@ lda::lda_base::lda_base(lda_data& words, lda_parameters params)
             Nitems += words.size(i);
         }
         counts_ = new int*[N_];
-        counts_data_ = new int[Nitems]; // this is actually an overestimate, but that's fine
+        counts_[0] = new int[Nitems]; // this is actually an overestimate, but that's fine
         counts_idx_ = new int*[N_];
-        counts_idx_data_ = new int[Nitems + N_];
+        counts_idx_[0] = new int[Nitems + N_];
 
-        int* j = counts_idx_data_;
-        int* cj = counts_data_;
+        int* j = counts_idx_[0];
+        int* cj = counts_[0];
         for (int i = 0; i != N_; ++i) {
             counts_idx_[i] = j;
             counts_[i] = cj;

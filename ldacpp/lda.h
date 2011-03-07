@@ -91,10 +91,10 @@ struct lda_base {
     public:
         lda_base(lda_data& data, lda_parameters params);
         ~lda_base() {
+            delete [] counts_[0];
             delete [] counts_;
-            delete [] counts_data_;
+            delete [] counts_idx_[0];
             delete [] counts_idx_;
-            delete [] counts_idx_data_;
         }
         virtual void step() = 0;
         virtual void forward() = 0;
@@ -111,11 +111,11 @@ struct lda_base {
         int** counts_;
         int* counts_data_;
         int** counts_idx_;
-        int* counts_idx_data_;
 
         floating alpha_;
         floating beta_;
 };
+
 struct lda_uncollapsed : lda_base {
     public:
         lda_uncollapsed(lda_data& data, lda_parameters params);
