@@ -120,7 +120,7 @@ struct lda_uncollapsed : lda_base {
     public:
         lda_uncollapsed(lda_data& data, lda_parameters params);
         ~lda_uncollapsed() {
-            delete [] multinomials_data_;
+            delete [] multinomials_[0];
             delete [] multinomials_;
             delete [] thetas_;
         }
@@ -137,7 +137,6 @@ struct lda_uncollapsed : lda_base {
 
     private:
         floating** multinomials_;
-        floating* multinomials_data_;
         floating* thetas_;
 };
 

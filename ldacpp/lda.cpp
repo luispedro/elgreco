@@ -146,9 +146,9 @@ lda::lda_uncollapsed::lda_uncollapsed(lda_data& words, lda_parameters params)
     :lda_base(words, params) {
         thetas_ = new floating[N_ * K_];
         multinomials_ = new floating*[K_];
-        multinomials_data_ = new floating[K_ * Nwords_];
-        for (int k = 0; k != K_; ++k) {
-            multinomials_[k] = multinomials_data_ + k*Nwords_;
+        multinomials_[0] = new floating[K_ * Nwords_];
+        for (int k = 1; k != K_; ++k) {
+            multinomials_[k] = multinomials_[k-1] + Nwords_;
         }
     }
 
