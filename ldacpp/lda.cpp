@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <numeric>
 #include <cstring>
+#include <limits>
+
 #include <omp.h>
 
 #include "lda.h"
@@ -37,9 +39,21 @@ floating dirichlet_logP_uniform(const floating* value, const floating alpha, int
 
     return res;
 }
+floating logdirichlet_logP_uniform(const floating* value, const floating alpha, int dim, bool normalise=true) {
+    floating res = 0;
+    for (int i = 0; i != dim; ++i) {
+        res += value[i];
+    }
+    res *= alpha;
+    if (normalise) {
+        res -= dim*gsl_sf_lngamma(alpha);
+        res += gsl_sf_lngamma(dim* alpha);
+    }
+
+    return res;
+}
 void dirichlet_sample(random_source& R, floating* res, const floating* alphas, int dim) {
     floating V = 0.;
-    const floating small = dim*1.e-9;
     for (int i = 0; i != dim; ++i) {
         res[i] = R.gamma(alphas[i], 1.0);
         V += res[i];
@@ -48,11 +62,29 @@ void dirichlet_sample(random_source& R, floating* res, const floating* alphas, i
         res[i] /= V;
     }
 }
+void logdirichlet_sample(random_source& R, floating* res, const floating* alphas, int dim) {
+    floating V = 0.;
+    for (int i = 0; i != dim; ++i) {
+        const floating v = R.gamma(alphas[i], 1.0);
+        res[i] = std::log(v);
+        V += v;
+    }
+    V = std::log(V);
+    for (int i = 0; i != dim; ++i) {
+        res[i] -= V;
+    }
+}
 
 void dirichlet_sample_uniform(random_source& R, floating* res, floating alpha, int dim) {
     floating alphas[dim];
     std::fill(alphas, alphas + dim, alpha);
     dirichlet_sample(R, res, alphas, dim);
+}
+
+void logdirichlet_sample_uniform(random_source& R, floating* res, floating alpha, int dim) {
+    floating alphas[dim];
+    std::fill(alphas, alphas + dim, alpha);
+    logdirichlet_sample(R, res, alphas, dim);
 }
 
 bool binomial_sample(random_source& R, floating p) {
@@ -224,8 +256,13 @@ void lda::lda_uncollapsed::step() {
         #pragma omp for
         for (int j = 0; j < Nwords_; ++j) {
             floating* crossed_j = crossed + j*K_;
+            floating max = crossed_j[0];
             for (int k = 0; k != K_; ++k) {
-                crossed_j[k] = 32.*multinomials_[k][j];
+                crossed_j[k] = multinomials_[k][j];
+                if (crossed_j[k] > max) max = crossed_j[k];
+            }
+            for (int k = 0; k != K_; ++k) {
+                crossed_j[k] = std::exp(crossed_j[k] - max);
             }
         }
 
@@ -261,7 +298,7 @@ void lda::lda_uncollapsed::step() {
         #pragma omp barrier
         #pragma omp for nowait
         for (int k = 0; k < K_; ++k) {
-            dirichlet_sample(R2, multinomials_[k], proposal+ k*Nwords_, Nwords_);
+            logdirichlet_sample(R2, multinomials_[k], proposal+ k*Nwords_, Nwords_);
         }
     }
 }
@@ -271,7 +308,7 @@ void lda::lda_uncollapsed::forward() {
         dirichlet_sample_uniform(R, thetas_ + i*K_, alpha_, K_);
     }
     for (int i = 0; i != K_; ++i) {
-        dirichlet_sample_uniform(R, multinomials_[i], beta_, Nwords_);
+        logdirichlet_sample_uniform(R, multinomials_[i], beta_, Nwords_);
     }
 }
 
@@ -295,33 +332,49 @@ void lda::lda_collapsed::forward() {
 
 floating lda::lda_uncollapsed::logP(bool normalise) const {
     double p = 0.;
-    #pragma omp parallel for reduction(+:p)
-    for (int i = 0; i < N_; ++i) {
-        const floating* Ti = (thetas_ + i*K_);
-        p += dirichlet_logP_uniform(Ti, alpha_, K_, normalise);
-        //std::cout << p << '\n';
-        // compute p += \sum_j w_j  * log( \sum_k \theta_k \psi_k )
-        // we use an intermediate variable (local_p) to avoid adding really
-        // small numbers to a larger number
-        floating local_p = 0;
-        for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
-            floating sum_k = 0.;
+    floating crossed[K_ * Nwords_];
+
+    #pragma omp parallel shared(crossed)
+    {
+        #pragma omp for
+        for (int j = 0; j < Nwords_; ++j) {
+            floating* crossed_j = crossed + j*K_;
+            floating max = crossed_j[0];
             for (int k = 0; k != K_; ++k) {
-                sum_k += Ti[k] * multinomials_[k][*j];
+                crossed_j[k] = multinomials_[k][j];
+                if (crossed_j[k] > max) max = crossed_j[k];
             }
-            //std::cout << "sum_k: " << sum_k << '\n';
-            local_p += (*cj) * std::log(sum_k);
+            for (int k = 0; k != K_; ++k) {
+                crossed_j[k] = std::exp(crossed_j[k] - max);
+            }
         }
-        //std::cout << "local_p: " << local_p << '\n';
-        p += local_p;
-        //std::cout << p << '\n';
-        if (normalise) {
-            std::cerr << "normalise not implemented.\n";
+
+        #pragma omp for reduction(+:p)
+        for (int i = 0; i < N_; ++i) {
+            const floating* Ti = (thetas_ + i*K_);
+            p += dirichlet_logP_uniform(Ti, alpha_, K_, normalise);
+            //std::cout << p << '\n';
+            // compute p += \sum_j w_j  * log( \sum_k \theta_k \psi_k )
+            // we use an intermediate variable (local_p) to avoid adding really
+            // small numbers to a larger number
+            floating local_p = 0;
+            for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
+                floating sum_k = 0.;
+                floating* crossed_j = crossed + (*j)*K_;
+                for (int k = 0; k != K_; ++k) {
+                    sum_k += Ti[k] * crossed_j[k];
+                }
+                local_p += (*cj) * std::log(sum_k);
+            }
+            p += local_p;
+            if (normalise) {
+                std::cerr << "normalise not implemented.\n";
+            }
         }
-    }
-    for (int k = 0; k != K_; ++k) {
-        p += dirichlet_logP_uniform(multinomials_[k], beta_, Nwords_, normalise);
-        //std::cout << p << '\n';
+        #pragma omp for reduction(+:p)
+        for (int k = 0; k < K_; ++k) {
+            p += logdirichlet_logP_uniform(multinomials_[k], beta_, Nwords_, normalise);
+        }
     }
     return p;
 }
@@ -411,7 +464,7 @@ void lda::lda_collapsed::print_topics(std::ostream& out) const {
 int lda::lda_uncollapsed::retrieve_logbeta(int k, float* res, int size) const {
     if (size != Nwords_) return 0;
     for (int j = 0; j != Nwords_; ++j) {
-        res[j] = std::log(multinomials_[k][j]);
+        res[j] = multinomials_[k][j];
     }
     return Nwords_;
 }

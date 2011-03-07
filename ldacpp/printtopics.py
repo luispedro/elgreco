@@ -7,7 +7,7 @@ Nwords = 25
 for ti,ws in enumerate(words):
     print 'Topic', ti
     for w in reversed(ws.argsort()[-Nwords:]):
-        print vocab[w], int(1./ws[w])
+        print vocab[w], int(1./np.exp(ws[w]))
     print
     print
     print
