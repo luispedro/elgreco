@@ -408,6 +408,20 @@ void lda::lda_collapsed::print_topics(std::ostream& out) const {
     }
 }
 
+int lda::lda_uncollapsed::retrieve_logbeta(int k, float* res, int size) const {
+    if (size != Nwords_) return 0;
+    for (int j = 0; j != Nwords_; ++j) {
+        res[j] = std::log(multinomials_[k][j]);
+    }
+    return Nwords_;
+}
+int lda::lda_uncollapsed::retrieve_theta(int i, float* res, int size) const {
+    if (size != K_) return 0;
+    const floating* m = thetas_ + i*K_;
+    for (int k = 0; k != K_; ++k) res[k] = m[k];
+    return K_;
+}
+
 void lda::lda_uncollapsed::load(std::istream& topics, std::istream& words) {
     floating* t = thetas_;
     for (int i = 0; i != N_*K_; ++i) {
@@ -437,4 +451,5 @@ void lda::lda_uncollapsed::load(std::istream& topics, std::istream& words) {
         }
     }
 }
+
 

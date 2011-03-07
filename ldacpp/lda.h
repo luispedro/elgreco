@@ -129,6 +129,9 @@ struct lda_uncollapsed : lda_base {
         virtual floating logP(bool normalise=false) const;
         void load(std::istream& topics, std::istream& words);
 
+        int retrieve_logbeta(int k, float* res, int size) const;
+        int retrieve_theta(int i, float* res, int size) const;
+
         void print_topics(std::ostream&) const;
         void print_words(std::ostream&) const;
 
