@@ -10,6 +10,14 @@
 
 namespace{
 
+const floating _pi = 3.1415926535898;
+const floating _inv_two_pi = 1./std::sqrt(2. * _pi);
+
+floating normal_like(const floating value, const lda::normal_params& params, bool normalise=true) {
+    floating d = (value - params.mu) * std::sqrt(params.precision);
+    return _inv_two_pi * params.precision * std::exp( -d*d );
+}
+
 floating dirichlet_logP(const floating* value, const floating* alphas, int dim, bool normalise=true) {
     floating res = 0;
     for (int i = 0; i != dim; ++i) {
@@ -149,9 +157,15 @@ lda::lda_base::lda_base(lda_data& words, lda_parameters params)
     :R(params.seed)
     ,K_(params.nr_topics)
     ,N_(words.nr_docs())
+    ,F_(words.nr_features())
     ,Nwords_(words.nr_terms())
     ,alpha_(params.alpha)
-    ,beta_(params.beta) {
+    ,beta_(params.beta)
+    ,Ga_(1)
+    ,Gb_(1)
+    ,Gn0_(1)
+    ,Gmu_(0.)
+    {
         int Nitems = 0;
         for (int i = 0; i != words.nr_docs(); ++i) {
             std::sort(words.at(i).begin(), words.at(i).end());
@@ -163,6 +177,16 @@ lda::lda_base::lda_base(lda_data& words, lda_parameters params)
         counts_idx_ = new int*[N_];
         counts_idx_[0] = new int[Nitems + N_];
 
+        features_ = new floating*[N_];
+        features_[0] = new floating[N_*F_];
+        for (int i = 1; i != N_; ++i) {
+            features_[i] = features_[i-1] + F_;
+        }
+        for (int i = 0; i != N_; ++i) {
+            for (int f = 0; f != F_; ++f) {
+                features_[i][f] = words.feature(i,f);
+            }
+        }
         int* j = counts_idx_[0];
         int* cj = counts_[0];
         for (int i = 0; i != N_; ++i) {
@@ -259,11 +283,20 @@ void lda::lda_uncollapsed::step() {
     floating proposal[K_ * Nwords_];
     floating crossed[K_ * Nwords_];
     std::fill(proposal, proposal + K_*Nwords_, beta_);
+    floating f_sum[K_*F_];
+    floating f_sum2[K_*F_];
+    std::fill(f_sum, f_sum + K_*F_, 0.);
+    std::fill(f_sum2, f_sum2 + K_*F_, 0.);
 
     #pragma omp parallel firstprivate(R2) shared(proposal, crossed)
     {
         floating* priv_proposal = new floating[K_*Nwords_];
+        floating* f_priv = new floating[K_*F_];
+        floating* f_priv2 = new floating[K_*F_];
         std::fill(priv_proposal, priv_proposal + K_*Nwords_, 0.);
+        std::fill(f_priv, f_priv + K_*F_, 0.);
+        std::fill(f_priv2, f_priv2 + K_*F_, 0.);
+
         #pragma omp for
         for (int j = 0; j < Nwords_; ++j) {
             floating* crossed_j = crossed + j*K_;
@@ -296,6 +329,17 @@ void lda::lda_uncollapsed::step() {
                     ++Tp[z];
                 }
             }
+            for (int f = 0; f != F_; ++f) {
+                for (int k = 0; k != K_; ++k) {
+                    p[k] = Ti[k]*normal_like(features_[i][f], normals_[k][f]);
+                }
+                ps_to_cps(p, K_);
+                const int z = categorical_sample_cps(R2, p, K_);
+                floating fif = features_[i][f];
+                int kf = f*K_ + z;
+                f_priv[kf] += fif;
+                f_priv2[kf] += fif*fif;
+            }
             dirichlet_sample(R2, Ti, Tp, K_);
         }
 
@@ -303,13 +347,26 @@ void lda::lda_uncollapsed::step() {
         {
             floating* p = priv_proposal;
             for (int kj = 0; kj < K_*Nwords_; ++kj) proposal[kj] += *p++;
+            for (int kf = 0; kf < K_*F_; ++kf) {
+                f_sum[kf] += f_priv[kf];
+                f_sum2[kf] += f_priv2[kf];
+            }
         }
         delete [] priv_proposal;
+        delete [] f_priv;
+        delete [] f_priv2;
 
         #pragma omp barrier
         #pragma omp for nowait
         for (int k = 0; k < K_; ++k) {
             logdirichlet_sample(R2, multinomials_[k], proposal+ k*Nwords_, Nwords_);
+            for (int f = 0; f < F_; ++f) {
+                floating sum = f_sum[f*K_ + k];
+                floating sum2 = f_sum2[f*K_ + k];
+                floating x_bar = sum/N_;
+                floating tao = R.gamma(Ga_ + N_/2., Gb_ + (sum2 - 2*sum*x_bar + x_bar*x_bar)/2. + N_*Gn0_/2./(N_+Gn0_)*(x_bar-Gmu_)*(x_bar-Gmu_));
+                floating mu = R.normal( N_*tao/(N_*tao + Gn0_ * tao)*x_bar + Gn0_*tao/(N_*tao+Gn0_*tao)*Gmu_, (N_+Gn0_)*tao);
+            }
         }
     }
 }

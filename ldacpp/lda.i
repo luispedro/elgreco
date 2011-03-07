@@ -3,6 +3,8 @@
 %include "std_vector.i"
 namespace std {
     %template(vectori) std::vector<int>;
+    %template(vectord) std::vector<double>;
+    %template(vectorf) std::vector<float>;
 }
 %{
 #define SWIG_FILE_WITH_INIT

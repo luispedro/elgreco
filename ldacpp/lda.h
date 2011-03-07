@@ -2,6 +2,7 @@
 #define LDA_H_INCLUDE_GUARD_LPC_ELGRECO_
 #include <vector>
 #include <iostream>
+#include <cmath>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_sf_gamma.h>
@@ -39,6 +40,12 @@ struct random_source {
     floating gamma(floating a, floating b) {
         return gsl_ran_gamma(r, a, b);
     }
+    floating normal(floating mu, floating sigma) {
+        return mu + gsl_ran_gaussian(r, sigma);
+    }
+    floating bayesian_normal(floating mu, floating precision) {
+        return mu + gsl_ran_gaussian(r, 1./std::sqrt(precision));
+    }
     int random_int(int a, int b) {
         return int(gsl_ran_flat(r, double(a),double(b)));
     }
@@ -68,11 +75,12 @@ struct lda_data {
             for (int i = 0; i != docs_.size(); ++i) res += size(i);
             return res;
         }
-        void push_back_doc(const std::vector<int>& nd) {
+        void push_back_doc(const std::vector<int>& nd, const std::vector<floating>& nf) {
             docs_.push_back(nd);
             for (unsigned i = 0; i != nd.size(); ++i) {
                 if (nd[i] >= nr_terms_) nr_terms_ = nd[i]+1;
             }
+            features_.push_back(nf);
         }
 
         std::vector<int>& at(int d) { return docs_[d]; }
@@ -80,8 +88,11 @@ struct lda_data {
         int size(int d) const { return docs_[d].size(); }
         int operator()(int d, int w) const { return docs_[d][w]; }
         int nr_terms() const { return nr_terms_; }
+        floating feature(int d, int w) const { return features_[d][w]; }
+        int nr_features() const { return features_[0].size(); }
     private:
         std::vector< std::vector<int> > docs_;
+        std::vector< std::vector<floating> > features_;
         int nr_terms_;
 };
 
@@ -95,6 +106,8 @@ struct lda_base {
             delete [] counts_;
             delete [] counts_idx_[0];
             delete [] counts_idx_;
+            delete [] features_[0];
+            delete [] features_;
         }
         virtual void step() = 0;
         virtual void forward() = 0;
@@ -106,14 +119,27 @@ struct lda_base {
         random_source R;
         int K_;
         int N_;
+        int F_;
         int Nwords_;
 
         int** counts_;
         int* counts_data_;
         int** counts_idx_;
 
+        floating** features_;
+
         floating alpha_;
         floating beta_;
+
+        floating Ga_;
+        floating Gb_;
+        floating Gn0_;
+        floating Gmu_;
+};
+
+struct normal_params {
+    floating mu;
+    floating precision;
 };
 
 struct lda_uncollapsed : lda_base {
@@ -137,6 +163,7 @@ struct lda_uncollapsed : lda_base {
 
     private:
         floating** multinomials_;
+        normal_params** normals_;
         floating* thetas_;
 };
 

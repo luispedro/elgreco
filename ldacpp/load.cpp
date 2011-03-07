@@ -22,7 +22,7 @@ lda::lda_data lda::load(std::istream& in) {
             --nelems;
         }
         if (!linein.eof() || nelems) break;
-        res.push_back_doc(curdoc);
+        res.push_back_doc(curdoc, std::vector<floating>());
     }
     return res;
 }
