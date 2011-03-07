@@ -22,8 +22,7 @@ lda::lda_data lda::load(std::istream& in) {
             --nelems;
         }
         if (!linein.eof() || nelems) break;
-        res.docs.push_back(curdoc);
+        res.push_back_doc(curdoc);
     }
-    res.nr_terms_ = max_term+1;
     return res;
 }

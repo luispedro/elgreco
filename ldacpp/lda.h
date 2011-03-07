@@ -60,19 +60,28 @@ struct lda_parameters {
 
 struct lda_data {
     public:
+        lda_data()
+            :nr_terms_(0)
+            { }
         int nr_words() const {
             int res = 0;
-            for (int i = 0; i != docs.size(); ++i) res += size(i);
+            for (int i = 0; i != docs_.size(); ++i) res += size(i);
             return res;
         }
-        std::vector<int>& at(int d) { return docs[d]; }
-        int nr_docs() const { return docs.size(); }
-        int size(int d) const { return docs[d].size(); }
-        int operator()(int d, int w) const { return docs[d][w]; }
+        void push_back_doc(const std::vector<int>& nd) {
+            docs_.push_back(nd);
+            for (unsigned i = 0; i != nd.size(); ++i) {
+                if (nd[i] >= nr_terms_) nr_terms_ = nd[i]+1;
+            }
+        }
+
+        std::vector<int>& at(int d) { return docs_[d]; }
+        int nr_docs() const { return docs_.size(); }
+        int size(int d) const { return docs_[d].size(); }
+        int operator()(int d, int w) const { return docs_[d][w]; }
         int nr_terms() const { return nr_terms_; }
     private:
-        friend lda_data load(std::istream &in);
-        std::vector< std::vector<int> > docs;
+        std::vector< std::vector<int> > docs_;
         int nr_terms_;
 };
 
