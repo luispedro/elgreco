@@ -65,9 +65,16 @@ void dirichlet_sample(random_source& R, floating* res, const floating* alphas, i
 void logdirichlet_sample(random_source& R, floating* res, const floating* alphas, int dim) {
     floating V = 0.;
     for (int i = 0; i != dim; ++i) {
-        const floating v = R.gamma(alphas[i], 1.0);
-        res[i] = std::log(v);
-        V += v;
+        if (alphas[i] < 1) {
+            const floating u = R.uniform01();
+            const floating v = R.gamma(alphas[i]+1.0, 1.);
+            res[i] = std::log(v) + std::log(u)/alphas[i];
+            V += v*std::pow(u, 1./alphas[i]);
+        } else {
+            const floating v = R.gamma(alphas[i], 1.0);
+            res[i] = std::log(v);
+            V += v;
+        }
     }
     V = std::log(V);
     for (int i = 0; i != dim; ++i) {
@@ -116,7 +123,11 @@ int categorical_sample_cps(random_source& R, const floating* cps, int dim) {
 inline
 void ps_to_cps(floating* ps, int dim) {
     for (int i = 1; i != dim; ++i) ps[i] += ps[i-1];
-    for (int i = 0; i != dim; ++i) ps[i] /= ps[dim-1];
+    if (ps[dim-1] == 0) {
+        for (int i = 0; i != dim; ++i) ps[i] = i/(dim-1);
+    } else {
+        for (int i = 0; i != dim; ++i) ps[i] /= ps[dim-1];
+    }
 }
 
 int categorical_sample(random_source& R, const floating* ps, int dim) {
@@ -256,7 +267,7 @@ void lda::lda_uncollapsed::step() {
         #pragma omp for
         for (int j = 0; j < Nwords_; ++j) {
             floating* crossed_j = crossed + j*K_;
-            floating max = crossed_j[0];
+            floating max = multinomials_[0][j];
             for (int k = 0; k != K_; ++k) {
                 crossed_j[k] = multinomials_[k][j];
                 if (crossed_j[k] > max) max = crossed_j[k];
