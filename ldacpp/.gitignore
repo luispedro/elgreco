@@ -1,1 +1,6 @@
 lda
+_lda.so
+lda.py
+lda.pyc
+lda_wrap.cxx
+*.o
