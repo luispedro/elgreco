@@ -217,6 +217,11 @@ lda::lda_uncollapsed::lda_uncollapsed(lda_data& words, lda_parameters params)
         for (int k = 1; k != K_; ++k) {
             multinomials_[k] = multinomials_[k-1] + Nwords_;
         }
+        normals_ = new normal_params*[K_];
+        normals_[0] = new normal_params[K_*F_];
+        for (int k = 1; k != K_; ++k) {
+            normals_[k] = normals_[k-1] + F_;
+        }
     }
 
 lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
@@ -309,7 +314,6 @@ void lda::lda_uncollapsed::step() {
                 crossed_j[k] = std::exp(crossed_j[k] - max);
             }
         }
-
 
         #pragma omp for
         for (int i = 0; i < N_; ++i) {

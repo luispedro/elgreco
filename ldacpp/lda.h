@@ -142,6 +142,7 @@ struct normal_params {
         :mu(mu)
         ,precision(precision)
         { }
+    normal_params() { }
     floating mu;
     floating precision;
 };
