@@ -361,11 +361,16 @@ void lda::lda_uncollapsed::step() {
         for (int k = 0; k < K_; ++k) {
             logdirichlet_sample(R2, multinomials_[k], proposal+ k*Nwords_, Nwords_);
             for (int f = 0; f < F_; ++f) {
-                floating sum = f_sum[f*K_ + k];
-                floating sum2 = f_sum2[f*K_ + k];
-                floating x_bar = sum/N_;
-                floating tao = R.gamma(Ga_ + N_/2., Gb_ + (sum2 - 2*sum*x_bar + x_bar*x_bar)/2. + N_*Gn0_/2./(N_+Gn0_)*(x_bar-Gmu_)*(x_bar-Gmu_));
-                floating mu = R.normal( N_*tao/(N_*tao + Gn0_ * tao)*x_bar + Gn0_*tao/(N_*tao+Gn0_*tao)*Gmu_, (N_+Gn0_)*tao);
+                // Check:
+                // 'http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.126.4603&rep=rep1&type=pdf'
+                // or
+                // http://en.wikipedia.org/wiki/Normal-gamma_distribution#Posterior_distribution_of_the_parameters
+                const floating sum = f_sum[f*K_ + k];
+                const floating sum2 = f_sum2[f*K_ + k];
+                const floating x_bar = sum/N_;
+                const floating tao = R.gamma(Ga_ + N_/2., Gb_ + (sum2 - 2*sum*x_bar + x_bar*x_bar)/2. + N_*Gn0_/2./(N_+Gn0_)*(x_bar-Gmu_)*(x_bar-Gmu_));
+                const floating mu = R.normal( N_*tao/(N_*tao + Gn0_ * tao)*x_bar + Gn0_*tao/(N_*tao+Gn0_*tao)*Gmu_, (N_+Gn0_)*tao);
+                normals_[k][f] = normal_params(mu, tao);
             }
         }
     }
@@ -375,8 +380,13 @@ void lda::lda_uncollapsed::forward() {
     for (int i = 0; i != N_; ++i) {
         dirichlet_sample_uniform(R, thetas_ + i*K_, alpha_, K_);
     }
-    for (int i = 0; i != K_; ++i) {
-        logdirichlet_sample_uniform(R, multinomials_[i], beta_, Nwords_);
+    for (int k = 0; k != K_; ++k) {
+        logdirichlet_sample_uniform(R, multinomials_[k], beta_, Nwords_);
+        for (int f = 0; f < F_; ++f) {
+            const floating tao = R.gamma(Ga_, Gb_);
+            const floating mu = R.normal(Gn0_* Gmu_, Gn0_*tao);
+            normals_[k][f] = normal_params(mu, tao);
+        }
     }
 }
 
