@@ -138,6 +138,10 @@ struct lda_base {
 };
 
 struct normal_params {
+    normal_params(floating mu, floating precision)
+        :mu(mu)
+        ,precision(precision)
+        { }
     floating mu;
     floating precision;
 };
