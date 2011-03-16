@@ -557,6 +557,18 @@ int lda::lda_uncollapsed::retrieve_theta(int i, float* res, int size) const {
     return K_;
 }
 
+int lda::lda_uncollapsed::set_logbeta(int k, float* src, int size) {
+    if (size != Nwords_) return 0;
+    std::copy(multinomials_[k], multinomials_[k] + Nwords_, src);
+    return Nwords_;
+}
+int lda::lda_uncollapsed::set_theta(int i, float* src, int size) {
+    if (size != K_) return 0;
+    const floating* m = thetas_ + i*K_;
+    std::copy(m, m + K_, src);
+    return K_;
+}
+
 void lda::lda_uncollapsed::load(std::istream& topics, std::istream& words) {
     floating* t = thetas_;
     for (int i = 0; i != N_*K_; ++i) {

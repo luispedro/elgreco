@@ -163,6 +163,9 @@ struct lda_uncollapsed : lda_base {
         int retrieve_logbeta(int k, float* res, int size) const;
         int retrieve_theta(int i, float* res, int size) const;
 
+        int set_logbeta(int k, float* res, int size);
+        int set_theta(int i, float* res, int size);
+
         void print_topics(std::ostream&) const;
         void print_words(std::ostream&) const;
 
