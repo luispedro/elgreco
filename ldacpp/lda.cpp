@@ -222,6 +222,8 @@ lda::lda_uncollapsed::lda_uncollapsed(lda_data& words, lda_parameters params)
         for (int k = 1; k != K_; ++k) {
             normals_[k] = normals_[k-1] + F_;
         }
+        sample_ = new bool[N_];
+        std::fill(sample_, sample_ + N_, true);
     }
 
 lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
@@ -344,7 +346,9 @@ void lda::lda_uncollapsed::step() {
                 f_priv[kf] += fif;
                 f_priv2[kf] += fif*fif;
             }
-            dirichlet_sample(R2, Ti, Tp, K_);
+            if (sample_[i]) {
+                dirichlet_sample(R2, Ti, Tp, K_);
+            }
         }
 
         #pragma omp critical

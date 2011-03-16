@@ -154,6 +154,9 @@ struct lda_uncollapsed : lda_base {
             delete [] multinomials_[0];
             delete [] multinomials_;
             delete [] thetas_;
+            delete [] normals_[0];
+            delete [] normals_;
+            delete [] sample_;
         }
         virtual void step();
         virtual void forward();
@@ -166,6 +169,8 @@ struct lda_uncollapsed : lda_base {
         int set_logbeta(int k, float* res, int size);
         int set_theta(int i, float* res, int size);
 
+        void nosample(int i) { sample_[i] = false; }
+
         void print_topics(std::ostream&) const;
         void print_words(std::ostream&) const;
 
@@ -173,6 +178,7 @@ struct lda_uncollapsed : lda_base {
         floating** multinomials_;
         normal_params** normals_;
         floating* thetas_;
+        bool* sample_;
 };
 
 struct lda_collapsed : lda_base {
