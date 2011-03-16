@@ -573,6 +573,49 @@ int lda::lda_uncollapsed::set_theta(int i, float* src, int size) {
     return K_;
 }
 
+floating lda::lda_uncollapsed::logperplexity(const std::vector<int>& words) {
+    const int nr_iters = 20;
+    floating thetas[K_];
+    std::fill(thetas, thetas + K_, 1.);
+
+    floating crossed[K_ * Nwords_];
+    for (int j = 0; j < Nwords_; ++j) {
+        floating* crossed_j = crossed + j*K_;
+        floating max = multinomials_[0][j];
+        for (int k = 0; k != K_; ++k) {
+            crossed_j[k] = multinomials_[k][j];
+            if (crossed_j[k] > max) max = crossed_j[k];
+        }
+        for (int k = 0; k != K_; ++k) {
+            crossed_j[k] = std::exp(crossed_j[k] - max);
+        }
+    }
+    for (int it = 0; it != nr_iters; ++it) {
+        floating proposal[K_];
+        std::fill(proposal, proposal + K_, alpha_);
+        for (int j = 0; j != words.size(); ++j) {
+            floating p[K_];
+            floating* crossed_j = crossed + words[j]*K_;
+            for (int k = 0; k != K_; ++k) {
+                p[k] = thetas[k]*crossed_j[k];
+            }
+            int z = categorical_sample(R, p, K_);
+            ++proposal[z];
+        }
+        dirichlet_sample(R, thetas, proposal, K_);
+    }
+    floating logp = dirichlet_logP_uniform(thetas, alpha_, K_, false);
+    for (int j = 0; j != words.size(); ++j) {
+        floating sum_k = 0;
+        floating* crossed_j = crossed + words[j]*K_;
+        for (int k = 0; k != K_; ++k) {
+            sum_k += thetas[k] * crossed_j[k];
+        }
+        logp += std::log(sum_k);
+    }
+    return logp;
+}
+
 void lda::lda_uncollapsed::load(std::istream& topics, std::istream& words) {
     floating* t = thetas_;
     for (int i = 0; i != N_*K_; ++i) {

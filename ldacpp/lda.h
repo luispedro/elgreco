@@ -171,6 +171,8 @@ struct lda_uncollapsed : lda_base {
 
         void nosample(int i) { sample_[i] = false; }
 
+        floating logperplexity(const std::vector<int>&);
+
         void print_topics(std::ostream&) const;
         void print_words(std::ostream&) const;
 
