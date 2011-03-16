@@ -425,7 +425,7 @@ floating lda::lda_uncollapsed::logP(bool normalise) const {
         #pragma omp for
         for (int j = 0; j < Nwords_; ++j) {
             floating* crossed_j = crossed + j*K_;
-            floating max = crossed_j[0];
+            floating max = multinomials_[0][j];
             for (int k = 0; k != K_; ++k) {
                 crossed_j[k] = multinomials_[k][j];
                 if (crossed_j[k] > max) max = crossed_j[k];
