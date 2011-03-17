@@ -581,6 +581,7 @@ floating lda::lda_uncollapsed::logperplexity(const std::vector<int>& words) {
     std::fill(thetas, thetas + K_, 1.);
 
     floating crossed[K_ * Nwords_];
+    floating offset[Nwords_];
     for (int j = 0; j < Nwords_; ++j) {
         floating* crossed_j = crossed + j*K_;
         floating max = multinomials_[0][j];
@@ -588,6 +589,7 @@ floating lda::lda_uncollapsed::logperplexity(const std::vector<int>& words) {
             crossed_j[k] = multinomials_[k][j];
             if (crossed_j[k] > max) max = crossed_j[k];
         }
+        offset[j] = max;
         for (int k = 0; k != K_; ++k) {
             crossed_j[k] = std::exp(crossed_j[k] - max);
         }
@@ -613,7 +615,7 @@ floating lda::lda_uncollapsed::logperplexity(const std::vector<int>& words) {
         for (int k = 0; k != K_; ++k) {
             sum_k += thetas[k] * crossed_j[k];
         }
-        logp += std::log(sum_k);
+        logp += std::log(sum_k) + offset[j];
     }
     return logp;
 }
