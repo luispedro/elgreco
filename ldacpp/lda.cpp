@@ -419,6 +419,7 @@ void lda::lda_collapsed::forward() {
 floating lda::lda_uncollapsed::logP(bool normalise) const {
     double p = 0.;
     floating crossed[K_ * Nwords_];
+    floating offset[Nwords_];
 
     #pragma omp parallel shared(crossed)
     {
@@ -427,12 +428,13 @@ floating lda::lda_uncollapsed::logP(bool normalise) const {
             floating* crossed_j = crossed + j*K_;
             floating max = multinomials_[0][j];
             for (int k = 0; k != K_; ++k) {
-                crossed_j[k] = multinomials_[k][j];
+                crossed_j[k] = std::exp(multinomials_[k][j]);
                 if (crossed_j[k] > max) max = crossed_j[k];
             }
             for (int k = 0; k != K_; ++k) {
                 crossed_j[k] = std::exp(crossed_j[k] - max);
             }
+            offset[j] = max;
         }
 
         #pragma omp for reduction(+:p)
@@ -450,7 +452,7 @@ floating lda::lda_uncollapsed::logP(bool normalise) const {
                 for (int k = 0; k != K_; ++k) {
                     sum_k += Ti[k] * crossed_j[k];
                 }
-                local_p += (*cj) * std::log(sum_k);
+                local_p += (*cj) * (std::log(sum_k) + offset[*j]);
             }
             p += local_p;
             if (normalise) {
