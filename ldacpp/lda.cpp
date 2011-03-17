@@ -428,7 +428,7 @@ floating lda::lda_uncollapsed::logP(bool normalise) const {
             floating* crossed_j = crossed + j*K_;
             floating max = multinomials_[0][j];
             for (int k = 0; k != K_; ++k) {
-                crossed_j[k] = std::exp(multinomials_[k][j]);
+                crossed_j[k] = multinomials_[k][j];
                 if (crossed_j[k] > max) max = crossed_j[k];
             }
             for (int k = 0; k != K_; ++k) {
