@@ -170,6 +170,7 @@ struct lda_uncollapsed : lda_base {
         int set_theta(int i, float* res, int size);
 
         void nosample(int i) { sample_[i] = false; }
+        void sample(int i) { sample_[i] = true; }
 
         floating logperplexity(const std::vector<int>&);
 
