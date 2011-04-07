@@ -169,6 +169,7 @@ struct lda_uncollapsed : lda_base {
         int set_logbeta(int k, float* res, int size);
         int set_theta(int i, float* res, int size);
 
+        int project_one(const std::vector<int>&, float* res, int size);
         void nosample(int i) { sample_[i] = false; }
         void sample(int i) { sample_[i] = true; }
 
@@ -178,6 +179,8 @@ struct lda_uncollapsed : lda_base {
         void print_words(std::ostream&) const;
 
     private:
+        void sample_one(const std::vector<int>&, floating*);
+
         floating** multinomials_;
         normal_params** normals_;
         floating* thetas_;
