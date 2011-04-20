@@ -46,6 +46,9 @@ struct random_source {
     floating bayesian_normal(floating mu, floating precision) {
         return mu + gsl_ran_gaussian(r, 1./std::sqrt(precision));
     }
+    floating exponential(floating lam) {
+        return gsl_ran_exponential(r, lam);
+    }
     int random_int(int a, int b) {
         return int(gsl_ran_flat(r, double(a),double(b)));
     }
@@ -75,12 +78,13 @@ struct lda_data {
             for (int i = 0; i != docs_.size(); ++i) res += size(i);
             return res;
         }
-        void push_back_doc(const std::vector<int>& nd, const std::vector<floating>& nf) {
+        void push_back_doc(const std::vector<int>& nd, const std::vector<floating>& nf, const bool label) {
             docs_.push_back(nd);
             for (unsigned i = 0; i != nd.size(); ++i) {
                 if (nd[i] >= nr_terms_) nr_terms_ = nd[i]+1;
             }
             features_.push_back(nf);
+            labels_.push_back(label);
         }
 
         std::vector<int>& at(int d) { return docs_[d]; }
@@ -90,9 +94,12 @@ struct lda_data {
         int nr_terms() const { return nr_terms_; }
         floating feature(int d, int w) const { return features_[d][w]; }
         int nr_features() const { return features_[0].size(); }
+
+        bool label(int d) const { return labels_[d]; }
     private:
         std::vector< std::vector<int> > docs_;
         std::vector< std::vector<floating> > features_;
+        std::vector< bool > labels_;
         int nr_terms_;
 };
 
@@ -108,6 +115,7 @@ struct lda_base {
             delete [] counts_idx_;
             delete [] features_[0];
             delete [] features_;
+            delete [] ls_;
         }
         virtual void step() = 0;
         virtual void forward() = 0;
@@ -127,6 +135,8 @@ struct lda_base {
         int** counts_idx_;
 
         floating** features_;
+
+        floating* ls_;
 
         floating alpha_;
         floating beta_;
@@ -157,6 +167,11 @@ struct lda_uncollapsed : lda_base {
             delete [] normals_[0];
             delete [] normals_;
             delete [] sample_;
+
+            delete [] z_bars_;
+
+            delete [] ys_;
+            delete [] gamma_;
         }
         virtual void step();
         virtual void forward();
@@ -183,8 +198,17 @@ struct lda_uncollapsed : lda_base {
 
         floating** multinomials_;
         normal_params** normals_;
+
+        floating* theta(int i) { return thetas_ + i*K_; }
         floating* thetas_;
+
         bool* sample_;
+
+        floating* z_bar(int i) { return z_bars_ + i*K_; }
+        floating* z_bars_;
+
+        floating* ys_;
+        floating* gamma_;
 };
 
 struct lda_collapsed : lda_base {
