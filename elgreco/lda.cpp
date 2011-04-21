@@ -104,6 +104,7 @@ void logdirichlet_sample_uniform(random_source& R, floating* res, floating alpha
     logdirichlet_sample(R, res, alphas, dim);
 }
 
+
 bool binomial_sample(random_source& R, floating p) {
     return R.uniform01() < p;
 }
@@ -153,7 +154,8 @@ int categorical_sample(random_source& R, const floating* ps, int dim) {
     return categorical_sample_cps(R, cps, dim);
 }
 
-floating dot_product(const floating* x, const floating* y, const int dim) {
+template<typename F1, typename F2>
+floating dot_product(const F1* x, const F2* y, const int dim) {
     floating res = 0;
     for (int i = 0; i != dim; ++i) res += x[i] * y[i];
     return res;
@@ -351,12 +353,31 @@ void lda::lda_uncollapsed::step() {
             floating* Ti = (thetas_ + i *K_);
             floating Tp[K_];
             floating* zb = z_bar(i);
+            floating* prior = Ti;
             std::fill(Tp, Tp + K_, alpha_);
             floating p[K_];
+            int Ni = 0;
+            for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
+                for (int cji = 0; cji != (*cj); ++cji) {
+                    ++Ni;
+                }
+            }
+            if (ls_) {
+                for (int k = 0; k != K_; ++k) {
+                    zb[k] *= (Ni-1)/floating(Ni);
+                }
+                floating r = dot_product(zb, gamma_, K_);
+                r -= ys_[i];
+                for (int k = 0; k != K_; ++k) {
+                    zb[k] = Ti[k]*normal_like(r, normal_params(gamma_[k]/Ni, 1.), false);
+                }
+                prior = zb;
+            }
+
             for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
                 floating* crossed_j = crossed + (*j)*K_;
                 for (int k = 0; k != K_; ++k) {
-                    p[k] = (zb[k] + Ti[k])*crossed_j[k];
+                    p[k] = prior[k]*crossed_j[k];
                 }
                 ps_to_cps(p, K_);
                 for (int cji = 0; cji != (*cj); ++cji) {
@@ -384,6 +405,7 @@ void lda::lda_uncollapsed::step() {
                 floating mu = dot_product(Tp, gamma_, K_);
                 if (!ls_[i]) mu = -mu;
                 ys_[i] = left_truncated_normal(R, mu);
+                if (!ls_[i]) ys_[i] = -ys_[i];
             }
         }
 
@@ -435,6 +457,9 @@ void lda::lda_uncollapsed::step() {
             gsl_linalg_QR_decomp(Z, tau);
             gsl_linalg_QR_lssolve(Z, tau, b, gamma, r);
 
+            for (int k = 0; k != K_; ++k) {
+                gamma_[k] = gsl_vector_get(gamma, k);
+            }
 
             gsl_vector_free(gamma);
             gsl_vector_free(tau);
@@ -619,6 +644,12 @@ int lda::lda_uncollapsed::retrieve_theta(int i, float* res, int size) const {
     std::copy(m, m + K_, res);
     return K_;
 }
+int lda::lda_uncollapsed::retrieve_gamma(float* res, int size) const {
+    if (size != K_) return 0;
+    std::copy(gamma_, gamma_ + K_, res);
+    return K_;
+}
+
 
 int lda::lda_uncollapsed::set_logbeta(int k, float* src, int size) {
     if (size != Nwords_) return 0;
@@ -638,6 +669,11 @@ int lda::lda_uncollapsed::project_one(const std::vector<int>& words, float* res,
     this->sample_one(words, thetas);
     std::copy(thetas, thetas + K_, res);
     return size;
+}
+
+float lda::lda_uncollapsed::score_one(const float* res, int size) const {
+    if (size != K_) return 0;
+    return dot_product(res, gamma_, size);
 }
 
 floating lda::lda_uncollapsed::logperplexity(const std::vector<int>& words) {
@@ -735,5 +771,6 @@ void lda::lda_uncollapsed::load(std::istream& topics, std::istream& words) {
         }
     }
 }
+
 
 

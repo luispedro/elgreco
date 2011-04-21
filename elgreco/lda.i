@@ -15,6 +15,7 @@ namespace std {
 %}
 
 %apply (float* INPLACE_ARRAY1, int DIM1) {(float* res, int size)}
+%apply (float* IN_ARRAY1, int DIM1) {(const float* array, int size)}
 
 %{
 #include "lda.h"

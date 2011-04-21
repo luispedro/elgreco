@@ -180,11 +180,13 @@ struct lda_uncollapsed : lda_base {
 
         int retrieve_logbeta(int k, float* res, int size) const;
         int retrieve_theta(int i, float* res, int size) const;
+        int retrieve_gamma(float* res, int size) const;
 
         int set_logbeta(int k, float* res, int size);
         int set_theta(int i, float* res, int size);
 
         int project_one(const std::vector<int>&, float* res, int size);
+        float score_one(const float* array, int size) const;
         void nosample(int i) { sample_[i] = false; }
         void sample(int i) { sample_[i] = true; }
 
