@@ -157,12 +157,26 @@ floating dot_product(const F1* x, const F2* y, const int dim) {
 }
 
 floating left_truncated_normal(random_source& R, const floating mu) {
-    floating z = R.exponential(1.);
-    z -= mu;
-    const floating rho = std::exp(-(z-1)*(z-1)/2.);
-    const floating u = R.uniform01();
-    if (u < rho) return z;
-    return left_truncated_normal(R, mu);
+    if (mu <= 0) {
+        floating z;
+        do {
+            z = R.normal(0., 1.);
+        } while (z < mu);
+        return z;
+    } else {
+        const floating alphastar = (mu + std::sqrt(mu*mu + 4))/2.;
+        int iters = 0;
+        while (true) {
+            const floating z = alphastar + R.exponential(1./alphastar);
+            const floating rho = std::exp(-(z-alphastar)*(z-alphastar)/2.);
+            const floating u = R.uniform01();
+            if (u < rho) return z;
+            ++iters;
+            if (iters > 100) {
+                std::cerr << ">100 iters for " << mu << '\n';
+            }
+        }
+    }
 }
 
 }
