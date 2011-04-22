@@ -168,6 +168,10 @@ struct lda_uncollapsed : lda_base {
             delete [] normals_;
             delete [] sample_;
 
+            for (int i = 0; i != N_; ++i) {
+                delete [] zs_[i];
+            }
+            delete [] zs_;
             delete [] z_bars_;
 
             delete [] ys_;
@@ -181,6 +185,7 @@ struct lda_uncollapsed : lda_base {
         int retrieve_logbeta(int k, float* res, int size) const;
         int retrieve_theta(int i, float* res, int size) const;
         int retrieve_gamma(float* res, int size) const;
+        float retrieve_ys(int i) const { return ys_[i]; }
 
         int set_logbeta(int k, float* res, int size);
         int set_theta(int i, float* res, int size);
@@ -201,13 +206,15 @@ struct lda_uncollapsed : lda_base {
         floating** multinomials_;
         normal_params** normals_;
 
-        floating* theta(int i) { return thetas_ + i*K_; }
+        floating* thetas(int i) { return thetas_ + i*K_; }
         floating* thetas_;
 
         bool* sample_;
 
         floating* z_bar(int i) { return z_bars_ + i*K_; }
         floating* z_bars_;
+
+        int** zs_;
 
         floating* ys_;
         floating* gamma_;
