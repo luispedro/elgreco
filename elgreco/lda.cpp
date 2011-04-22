@@ -144,13 +144,8 @@ void ps_to_cps(floating* ps, int dim) {
 int categorical_sample(random_source& R, const floating* ps, int dim) {
     if (dim == 1) return 0;
     floating cps[dim];
-    cps[0] = ps[0];
-    for (int i = 1; i != dim; ++i) {
-        cps[i] = ps[i]+ cps[i-1];
-    }
-    for (int i = 0; i != dim; ++i) {
-        cps[i] /= cps[dim-1];
-    }
+    std::copy(ps, ps + dim, cps);
+    ps_to_cps(cps, dim);
     return categorical_sample_cps(R, cps, dim);
 }
 
