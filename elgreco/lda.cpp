@@ -218,9 +218,13 @@ lda::lda_base::lda_base(lda_data& input, lda_parameters params)
                 features_[i][f] = input.feature(i,f);
             }
         }
-        ls_ = new floating[N_];
-        for (int i = 0; i != N_; ++i) {
-            ls_[i] = input.label(i);
+        if (params.slda) {
+            ls_ = new floating[N_];
+            for (int i = 0; i != N_; ++i) {
+                ls_[i] = input.label(i);
+            }
+        } else {
+            ls_ = 0;
         }
         int* j = counts_idx_[0];
         int* cj = counts_[0];
@@ -263,19 +267,25 @@ lda::lda_uncollapsed::lda_uncollapsed(lda_data& words, lda_parameters params)
         z_bars_ = new floating[N_ * K_];
         std::fill(z_bars_, z_bars_ + N_*K_, 0.);
 
-        zs_ = new int*[N_];
-        for (int i = 0; i != N_; ++i) {
-            zs_[i] = new int[words.size(i) + F_ + 1];
-            zs_[i][0] = words.size(i) + F_;
+        if (ls_) {
+            zs_ = new int*[N_];
+            for (int i = 0; i != N_; ++i) {
+                zs_[i] = new int[words.size(i) + F_ + 1];
+                zs_[i][0] = words.size(i) + F_;
+            }
+            ys_ = new floating[N_];
+            gamma_ = new floating[K_];
+            std::fill(gamma_, gamma_ + K_, 0.);
+            for (int i = 0; i != N_; ++i) {
+                ys_[i] = left_truncated_normal(R, 0);
+                if (!ls_[i]) ys_[i] = -ys_[i];
+            }
+        } else {
+            zs_ = 0;
+            ys_ = 0;
+            gamma_ = 0;
         }
 
-        ys_ = new floating[N_];
-        gamma_ = new floating[K_];
-        std::fill(gamma_, gamma_ + K_, 0.);
-        for (int i = 0; i != N_; ++i) {
-            ys_[i] = left_truncated_normal(R, 0);
-            if (!ls_[i]) ys_[i] = -ys_[i];
-        }
     }
 
 lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
@@ -378,28 +388,31 @@ void lda::lda_uncollapsed::step() {
             floating p[K_];
             floating transfer[K_][K_];
             int wj = 1;
-            const int Ni = zs_[i][0];
+            const int Ni = (ls_ ? zs_[i][0] : 1);
 
-            floating delta = ys_[i];
-            delta -= dot_product(z_bar(i), gamma_, K_);
-            for (int cur = 0; cur != K_; ++cur) {
-                for (int k = 0; k != K_; ++k) {
-                    floating d2 = delta + (gamma_[cur]-gamma_[k])/Ni;
-                    d2 *= d2;
-                    transfer[cur][k] = Ti[k] * std::exp(-.5 * d2);
+            if (ls_) {
+                const floating delta = ys_[i] - dot_product(z_bar(i), gamma_, K_);
+                for (int cur = 0; cur != K_; ++cur) {
+                    for (int k = 0; k != K_; ++k) {
+                        floating d2 = delta + (gamma_[cur]-gamma_[k])/Ni;
+                        d2 *= d2;
+                        transfer[cur][k] = Ti[k] * std::exp(-.5 * d2);
+                    }
                 }
+            } else {
+                std::copy(thetas(i), thetas(i+1), transfer[0]);
             }
 
             for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
                 floating* crossed_j = crossed + (*j)*K_;
                 for (int cji = 0; cji != (*cj); ++cji) {
-                    int cur = zs_[i][wj];
+                    const int cur = (ls_ ? zs_[i][wj] : 0);
                     assert (cur < K_);
                     for (int k = 0; k != K_; ++k) {
                         p[k] = crossed_j[k] * transfer[cur][k];
                     }
                     const int z  = categorical_sample(R2, p, K_);
-                    zs_[i][wj++] = z;
+                    if (ls_) zs_[i][wj++] = z;
                     assert(*j < Nwords_);
                     assert(z < K_);
                     ++priv_proposal[z*Nwords_ + *j];
@@ -408,12 +421,12 @@ void lda::lda_uncollapsed::step() {
             }
             for (int f = 0; f != F_; ++f) {
                 for (int k = 0; k != K_; ++k) {
-                    const int cur = zs_[i][wj];
+                    const int cur = (ls_ ? zs_[i][wj] : 0);
                     assert(cur < K_);
                     p[k] = transfer[cur][k]*normal_like(features_[i][f], normals_[k][f]);
                 }
                 const int z = categorical_sample(R2, p, K_);
-                zs_[i][wj++] = z;
+                if (ls_) zs_[i][wj++] = z;
                 ++Tp[z];
                 floating fif = features_[i][f];
                 int kf = f*K_ + z;
@@ -469,28 +482,30 @@ void lda::lda_uncollapsed::step() {
         #pragma omp single
         {
 // sample gamma
-            gsl_matrix* Z = gsl_matrix_alloc(N_, K_);
-            gsl_vector* tau = gsl_vector_alloc(K_);
-            gsl_vector* b = gsl_vector_alloc(N_);
-            gsl_vector* r = gsl_vector_alloc(N_);
-            gsl_vector* gamma = gsl_vector_alloc(K_);
+            if (ls_) {
+                gsl_matrix* Z = gsl_matrix_alloc(N_, K_);
+                gsl_vector* tau = gsl_vector_alloc(K_);
+                gsl_vector* b = gsl_vector_alloc(N_);
+                gsl_vector* r = gsl_vector_alloc(N_);
+                gsl_vector* gamma = gsl_vector_alloc(K_);
 
-            for (int i = 0; i != N_; ++i) {
-                gsl_vector_set(b, i, ys_[i]);
-                for (int k = 0; k != K_; ++k) {
-                    gsl_matrix_set(Z, i, k, z_bar(i)[k]);
+                for (int i = 0; i != N_; ++i) {
+                    gsl_vector_set(b, i, ys_[i]);
+                    for (int k = 0; k != K_; ++k) {
+                        gsl_matrix_set(Z, i, k, z_bar(i)[k]);
+                    }
                 }
-            }
-            gsl_linalg_QR_decomp(Z, tau);
-            gsl_linalg_QR_lssolve(Z, tau, b, gamma, r);
+                gsl_linalg_QR_decomp(Z, tau);
+                gsl_linalg_QR_lssolve(Z, tau, b, gamma, r);
 
-            for (int k = 0; k != K_; ++k) {
-                gamma_[k] = gsl_vector_get(gamma, k);
-            }
+                for (int k = 0; k != K_; ++k) {
+                    gamma_[k] = gsl_vector_get(gamma, k);
+                }
 
-            gsl_vector_free(gamma);
-            gsl_vector_free(tau);
-            gsl_matrix_free(Z);
+                gsl_vector_free(gamma);
+                gsl_vector_free(tau);
+                gsl_matrix_free(Z);
+            }
         }
     }
 }
@@ -501,9 +516,11 @@ void lda::lda_uncollapsed::forward() {
         floating tcps[K_];
         std::copy(thetas(i), thetas(i+1), tcps);
         ps_to_cps(tcps, K_);
-        const int Ni = zs_[i][0];
-        for (int j = 0; j != Ni; ++j) {
-            zs_[i][j+1] = categorical_sample_cps(R, tcps, K_);
+        if (ls_) {
+            const int Ni = zs_[i][0];
+            for (int j = 0; j != Ni; ++j) {
+                zs_[i][j+1] = categorical_sample_cps(R, tcps, K_);
+            }
         }
     }
     for (int k = 0; k != K_; ++k) {
@@ -514,7 +531,7 @@ void lda::lda_uncollapsed::forward() {
             normals_[k][f] = normal_params(mu, tao);
         }
     }
-    std::fill(gamma_, gamma_ + K_, 0.);
+    if (gamma_) std::fill(gamma_, gamma_ + K_, 0.);
 }
 
 void lda::lda_collapsed::forward() {

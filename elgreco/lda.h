@@ -62,6 +62,7 @@ struct lda_parameters {
     unsigned seed;
     int nr_topics;
     int nr_iterations;
+    bool slda;
     floating alpha;
     floating beta;
 };
@@ -168,10 +169,12 @@ struct lda_uncollapsed : lda_base {
             delete [] normals_;
             delete [] sample_;
 
-            for (int i = 0; i != N_; ++i) {
-                delete [] zs_[i];
+            if (zs_) {
+                for (int i = 0; i != N_; ++i) {
+                    delete [] zs_[i];
+                }
+                delete [] zs_;
             }
-            delete [] zs_;
             delete [] z_bars_;
 
             delete [] ys_;
