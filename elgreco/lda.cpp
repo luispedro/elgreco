@@ -458,7 +458,7 @@ void lda::lda_uncollapsed::step() {
                 for (int ell = 0; ell != L_; ++ell) {
                     floating mu = dot_product(zb, gamma(ell), K_);
                     if (!li[ell]) mu = -mu;
-                    yi[i] = mu + left_truncated_normal(R2, -mu);
+                    yi[ell] = mu + left_truncated_normal(R2, -mu);
                     if (!li[ell]) yi[ell] = -yi[ell];
                     //std::cerr << "mu_i: " << mu << "; ys_i: " << yi[ell] << " (ls_[i]: " << floating(ls_[i]) << ")\n";
                 }
