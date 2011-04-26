@@ -227,8 +227,8 @@ struct lda_uncollapsed : lda_base {
         const floating* ys(int i) const { return ys_ + i*L_; }
 
         floating* gamma_;
-        floating* gamma(int ell) {return gamma_ + ell*L_; }
-        const floating* gamma(int ell) const {return gamma_ + ell*L_; }
+        floating* gamma(int ell) {return gamma_ + ell*K_; }
+        const floating* gamma(int ell) const {return gamma_ + ell*K_; }
 };
 
 struct lda_collapsed : lda_base {
