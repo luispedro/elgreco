@@ -62,7 +62,7 @@ struct lda_parameters {
     unsigned seed;
     int nr_topics;
     int nr_iterations;
-    bool slda;
+    int nr_labels;
     floating alpha;
     floating beta;
 };
@@ -79,13 +79,13 @@ struct lda_data {
             for (int i = 0; i != docs_.size(); ++i) res += size(i);
             return res;
         }
-        void push_back_doc(const std::vector<int>& nd, const std::vector<floating>& nf, const bool label) {
+        void push_back_doc(const std::vector<int>& nd, const std::vector<floating>& nf, const std::vector<bool>& nl) {
             docs_.push_back(nd);
             for (unsigned i = 0; i != nd.size(); ++i) {
                 if (nd[i] >= nr_terms_) nr_terms_ = nd[i]+1;
             }
             features_.push_back(nf);
-            labels_.push_back(label);
+            labels_.push_back(nl);
         }
 
         std::vector<int>& at(int d) { return docs_[d]; }
@@ -96,11 +96,11 @@ struct lda_data {
         floating feature(int d, int w) const { return features_[d][w]; }
         int nr_features() const { return features_[0].size(); }
 
-        bool label(int d) const { return labels_[d]; }
+        bool label(int d, int ell) const { return labels_[d][ell]; }
     private:
         std::vector< std::vector<int> > docs_;
         std::vector< std::vector<floating> > features_;
-        std::vector< bool > labels_;
+        std::vector< std::vector<bool> > labels_;
         int nr_terms_;
 };
 
@@ -129,6 +129,7 @@ struct lda_base {
         int K_;
         int N_;
         int F_;
+        int L_;
         int Nwords_;
 
         int** counts_;
@@ -138,6 +139,8 @@ struct lda_base {
         floating** features_;
 
         floating* ls_;
+        floating* ls(int i) { return ls_ + i*L_; }
+        const floating* ls(int i) const { return ls_ + i*L_; }
 
         floating alpha_;
         floating beta_;
@@ -187,14 +190,14 @@ struct lda_uncollapsed : lda_base {
 
         int retrieve_logbeta(int k, float* res, int size) const;
         int retrieve_theta(int i, float* res, int size) const;
-        int retrieve_gamma(float* res, int size) const;
-        float retrieve_ys(int i) const { return ys_[i]; }
+        int retrieve_gamma(int ell, float* res, int size) const;
+        int retrieve_ys(int i, float* res, int size) const;
 
         int set_logbeta(int k, float* res, int size);
         int set_theta(int i, float* res, int size);
 
         int project_one(const std::vector<int>&, float* res, int size);
-        float score_one(const float* array, int size) const;
+        float score_one(int ell, const float* array, int size) const;
         void nosample(int i) { sample_[i] = false; }
         void sample(int i) { sample_[i] = true; }
 
@@ -220,7 +223,12 @@ struct lda_uncollapsed : lda_base {
         int** zs_;
 
         floating* ys_;
+        floating* ys(int i) { return ys_ + i*L_; }
+        const floating* ys(int i) const { return ys_ + i*L_; }
+
         floating* gamma_;
+        floating* gamma(int ell) {return gamma_ + ell*L_; }
+        const floating* gamma(int ell) const {return gamma_ + ell*L_; }
 };
 
 struct lda_collapsed : lda_base {

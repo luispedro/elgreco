@@ -5,6 +5,7 @@ namespace std {
     %template(vectori) std::vector<int>;
     %template(vectord) std::vector<double>;
     %template(vectorf) std::vector<float>;
+    %template(vectorb) std::vector<bool>;
 }
 %{
 #define SWIG_FILE_WITH_INIT

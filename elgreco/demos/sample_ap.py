@@ -12,13 +12,13 @@ for line in file('ap/ap.dat'):
 
 data = lda.lda_data()
 for doc in documents:
-    data.push_back_doc(doc, [], False)
+    data.push_back_doc(doc, [], [])
 params = lda.lda_parameters()
 params.alpha = .01
 params.beta = .1
 params.nr_topics = 40
 params.seed = 2
-params.slda = False
+params.nr_labels = 0
 sampler = lda.lda_uncollapsed(data, params)
 sampler.forward()
 

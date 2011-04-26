@@ -17,13 +17,17 @@ def load_data(datafile):
 labels = [int(line.strip()) for line in file('train-label.dat')]
 
 data = lda.lda_data()
+labs = np.zeros(8, bool)
 for doc,lab in zip(load_data('train-data.dat'), labels):
-    data.push_back_doc(doc, [], lab > 4)
+    labs[:] = 0
+    labs[lab] = 1
+    data.push_back_doc(doc, [], labs)
     
 params = lda.lda_parameters()
 params.alpha = .01
 params.beta = .1
 params.nr_topics = 40
+params.nr_labels = 8
 params.seed = 2
 sampler = lda.lda_uncollapsed(data, params)
 sampler.forward()
@@ -38,11 +42,11 @@ for i in xrange(100):
 tdocuments = load_data('test-data.dat')
 tlabels = [int(line.strip()) for line in file('test-label.dat')]
 G = np.zeros(40, np.float32)
-sampler.retrieve_gamma(G)
+sampler.retrieve_gamma(0,G)
 T = np.zeros(40, np.float32)
 tests = []
 for doc in tdocuments:
-    _ = sampler.sample_one(doc, T)
-    tests.append(sampler.score_one(T))
+    _ = sampler.project_one(doc, T)
+    tests.append([sampler.score_one(ell,T) for ell in xrange(8)])
 
 

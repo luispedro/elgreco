@@ -123,6 +123,7 @@ int categorical_sample_norm(random_source& R, const floating* ps, int dim) {
 int categorical_sample_cps(random_source& R, const floating* cps, int dim) {
     floating val = R.uniform01();
     if (val < cps[0]) return 0;
+    assert(val < cps[dim-1]);
     int a = 0, b = dim;
     while ((a+1) < b) {
         const int m = a + (b-a)/2;
@@ -187,6 +188,7 @@ lda::lda_base::lda_base(lda_data& input, lda_parameters params)
     ,K_(params.nr_topics)
     ,N_(input.nr_docs())
     ,F_(input.nr_features())
+    ,L_(params.nr_labels)
     ,Nwords_(input.nr_terms())
     ,alpha_(params.alpha)
     ,beta_(params.beta)
@@ -218,10 +220,12 @@ lda::lda_base::lda_base(lda_data& input, lda_parameters params)
                 features_[i][f] = input.feature(i,f);
             }
         }
-        if (params.slda) {
-            ls_ = new floating[N_];
+        if (params.nr_labels) {
+            ls_ = new floating[N_ * L_];
             for (int i = 0; i != N_; ++i) {
-                ls_[i] = input.label(i);
+                for (int ell = 0; ell != L_; ++ell) {
+                    ls(i)[ell] = input.label(i, ell);
+                }
             }
         } else {
             ls_ = 0;
@@ -273,12 +277,15 @@ lda::lda_uncollapsed::lda_uncollapsed(lda_data& words, lda_parameters params)
                 zs_[i] = new int[words.size(i) + F_ + 1];
                 zs_[i][0] = words.size(i) + F_;
             }
-            ys_ = new floating[N_];
-            gamma_ = new floating[K_];
-            std::fill(gamma_, gamma_ + K_, 0.);
+            ys_ = new floating[N_*L_];
+            gamma_ = new floating[K_ * L_];
+            std::fill(gamma_, gamma_ + K_* L_, 0.);
             for (int i = 0; i != N_; ++i) {
-                ys_[i] = left_truncated_normal(R, 0);
-                if (!ls_[i]) ys_[i] = -ys_[i];
+                for (int ell = 0; ell != L_; ++ell) {
+                floating* yi = ys(i);
+                    yi[ell] = left_truncated_normal(R, 0);
+                    if (!ls(i)[ell]) yi[ell] = -yi[ell];
+                }
             }
         } else {
             zs_ = 0;
@@ -381,7 +388,6 @@ void lda::lda_uncollapsed::step() {
 
         #pragma omp for
         for (int i = 0; i < N_; ++i) {
-            floating* Ti = (thetas_ + i *K_);
             floating Tp[K_];
             floating* zb = z_bar(i);
             std::fill(Tp, Tp + K_, alpha_);
@@ -391,12 +397,18 @@ void lda::lda_uncollapsed::step() {
             const int Ni = (ls_ ? zs_[i][0] : 1);
 
             if (ls_) {
-                const floating delta = ys_[i] - dot_product(z_bar(i), gamma_, K_);
-                for (int cur = 0; cur != K_; ++cur) {
-                    for (int k = 0; k != K_; ++k) {
-                        floating d2 = delta + (gamma_[cur]-gamma_[k])/Ni;
-                        d2 *= d2;
-                        transfer[cur][k] = Ti[k] * std::exp(-.5 * d2);
+                for (int k = 0; k != K_; ++k) {
+                    std::copy(thetas(i), thetas(i+1), transfer[k]);
+                }
+                for (int ell = 0; ell != L_; ++ell) {
+                    const floating* gl = gamma(ell);
+                    const floating delta = ys(i)[ell] - dot_product(z_bar(i), gl, K_);
+                    for (int cur = 0; cur != K_; ++cur) {
+                        for (int k = 0; k != K_; ++k) {
+                            floating d2 = delta + (gl[cur]-gl[k])/Ni;
+                            d2 *= d2;
+                            transfer[cur][k] *= std::exp(-.5 * d2);
+                        }
                     }
                 }
             } else {
@@ -434,18 +446,22 @@ void lda::lda_uncollapsed::step() {
                 f_priv2[kf] += fif*fif;
             }
             if (sample_[i]) {
-                dirichlet_sample(R2, Ti, Tp, K_);
+                dirichlet_sample(R2, thetas(i), Tp, K_);
             }
             std::copy(Tp, Tp + K_, zb);
             for (int k = 0; k != K_; ++k) {
                 zb[k] /= Ni;
             }
             if (ls_) {
-                floating mu = dot_product(zb, gamma_, K_);
-                if (!ls_[i]) mu = -mu;
-                ys_[i] = mu + left_truncated_normal(R2, -mu);
-                if (!ls_[i]) ys_[i] = -ys_[i];
-                //std::cerr << "mu_i: " << mu << "; ys_i: " << ys_[i] << " (ls_[i]: " << floating(ls_[i]) << ")\n";
+                floating* li = ls(i);
+                floating* yi = ys(i);
+                for (int ell = 0; ell != L_; ++ell) {
+                    floating mu = dot_product(zb, gamma(ell), K_);
+                    if (!li[ell]) mu = -mu;
+                    yi[i] = mu + left_truncated_normal(R2, -mu);
+                    if (!li[ell]) yi[ell] = -yi[ell];
+                    //std::cerr << "mu_i: " << mu << "; ys_i: " << yi[ell] << " (ls_[i]: " << floating(ls_[i]) << ")\n";
+                }
             }
         }
 
@@ -463,7 +479,7 @@ void lda::lda_uncollapsed::step() {
         delete [] f_priv2;
 
         #pragma omp barrier
-        #pragma omp for nowait
+        #pragma omp for
         for (int k = 0; k < K_; ++k) {
             logdirichlet_sample(R2, multinomials_[k], proposal+ k*Nwords_, Nwords_);
             for (int f = 0; f < F_; ++f) {
@@ -479,10 +495,11 @@ void lda::lda_uncollapsed::step() {
                 normals_[k][f] = normal_params(mu, tao);
             }
         }
-        #pragma omp single
-        {
-// sample gamma
-            if (ls_) {
+        if (ls_) {
+            #pragma omp for
+            for (int ell = 0; ell < L_; ++ell) {
+                // sample gamma
+                floating* gl = gamma(ell);
                 gsl_matrix* Z = gsl_matrix_alloc(N_, K_);
                 gsl_vector* tau = gsl_vector_alloc(K_);
                 gsl_vector* b = gsl_vector_alloc(N_);
@@ -490,7 +507,7 @@ void lda::lda_uncollapsed::step() {
                 gsl_vector* gamma = gsl_vector_alloc(K_);
 
                 for (int i = 0; i != N_; ++i) {
-                    gsl_vector_set(b, i, ys_[i]);
+                    gsl_vector_set(b, i, ys(i)[ell]);
                     for (int k = 0; k != K_; ++k) {
                         gsl_matrix_set(Z, i, k, z_bar(i)[k]);
                     }
@@ -499,7 +516,7 @@ void lda::lda_uncollapsed::step() {
                 gsl_linalg_QR_lssolve(Z, tau, b, gamma, r);
 
                 for (int k = 0; k != K_; ++k) {
-                    gamma_[k] = gsl_vector_get(gamma, k);
+                    gl[k] = gsl_vector_get(gamma, k);
                 }
 
                 gsl_vector_free(gamma);
@@ -512,7 +529,7 @@ void lda::lda_uncollapsed::step() {
 
 void lda::lda_uncollapsed::forward() {
     for (int i = 0; i != N_; ++i) {
-        dirichlet_sample_uniform(R, thetas_ + i*K_, alpha_, K_);
+        dirichlet_sample_uniform(R, thetas(i), alpha_, K_);
         floating tcps[K_];
         std::copy(thetas(i), thetas(i+1), tcps);
         ps_to_cps(tcps, K_);
@@ -531,7 +548,7 @@ void lda::lda_uncollapsed::forward() {
             normals_[k][f] = normal_params(mu, tao);
         }
     }
-    if (gamma_) std::fill(gamma_, gamma_ + K_, 0.);
+    if (gamma_) std::fill(gamma_, gamma_ + K_ * L_, 0.);
 }
 
 void lda::lda_collapsed::forward() {
@@ -696,10 +713,15 @@ int lda::lda_uncollapsed::retrieve_theta(int i, float* res, int size) const {
     std::copy(m, m + K_, res);
     return K_;
 }
-int lda::lda_uncollapsed::retrieve_gamma(float* res, int size) const {
+int lda::lda_uncollapsed::retrieve_gamma(int ell, float* res, int size) const {
     if (size != K_) return 0;
-    std::copy(gamma_, gamma_ + K_, res);
+    std::copy(gamma(ell), gamma(ell + 1), res);
     return K_;
+}
+int lda::lda_uncollapsed::retrieve_ys(int i, float* res, int size) const {
+    if (size != L_) return 0;
+    std::copy(ys(i), ys(i+1), res);
+    return L_;
 }
 
 
@@ -723,9 +745,9 @@ int lda::lda_uncollapsed::project_one(const std::vector<int>& words, float* res,
     return size;
 }
 
-float lda::lda_uncollapsed::score_one(const float* res, int size) const {
+float lda::lda_uncollapsed::score_one(int ell, const float* res, int size) const {
     if (size != K_) return 0;
-    return dot_product(res, gamma_, size);
+    return dot_product(res, gamma(ell), size);
 }
 
 floating lda::lda_uncollapsed::logperplexity(const std::vector<int>& words) {
