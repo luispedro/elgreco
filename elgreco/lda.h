@@ -124,6 +124,10 @@ struct lda_base {
 
         virtual void print_topics(std::ostream&) const = 0;
         virtual void print_words(std::ostream&) const = 0;
+
+        int nr_topics() const { return K_; }
+        int nr_labels() const { return L_; }
+
     protected:
         random_source R;
         int K_;
