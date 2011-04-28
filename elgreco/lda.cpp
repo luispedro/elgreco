@@ -499,29 +499,36 @@ void lda::lda_uncollapsed::step() {
             #pragma omp for
             for (int ell = 0; ell < L_; ++ell) {
                 // sample gamma
-                floating* gl = gamma(ell);
-                gsl_matrix* Z = gsl_matrix_alloc(N_, K_);
-                gsl_vector* tau = gsl_vector_alloc(K_);
-                gsl_vector* b = gsl_vector_alloc(N_);
+                gsl_matrix Z;
+                Z.size1 = N_;
+                Z.size2 = K_;
+                Z.tda = K_;
+                Z.data = z_bars_;
+                Z.block = 0;
+                Z.owner = 0;
+
+                gsl_vector b;
+                b.size = N_;
+                b.stride = L_;
+                b.data = ys_ + ell;
+                b.block = 0;
+                b.owner = 0;
+
+                gsl_vector gammav;
+                gammav.size = K_;
+                gammav.stride = 1;
+                gammav.data = gamma(ell);
+                gammav.block = 0;
+                gammav.owner = 0;
+
                 gsl_vector* r = gsl_vector_alloc(N_);
-                gsl_vector* gamma = gsl_vector_alloc(K_);
+                gsl_vector* tau = gsl_vector_alloc(K_);
 
-                for (int i = 0; i != N_; ++i) {
-                    gsl_vector_set(b, i, ys(i)[ell]);
-                    for (int k = 0; k != K_; ++k) {
-                        gsl_matrix_set(Z, i, k, z_bar(i)[k]);
-                    }
-                }
-                gsl_linalg_QR_decomp(Z, tau);
-                gsl_linalg_QR_lssolve(Z, tau, b, gamma, r);
+                gsl_linalg_QR_decomp(&Z, tau);
+                gsl_linalg_QR_lssolve(&Z, tau, &b, &gammav, r);
 
-                for (int k = 0; k != K_; ++k) {
-                    gl[k] = gsl_vector_get(gamma, k);
-                }
-
-                gsl_vector_free(gamma);
                 gsl_vector_free(tau);
-                gsl_matrix_free(Z);
+                gsl_vector_free(r);
             }
         }
     }
