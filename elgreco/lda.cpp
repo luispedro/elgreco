@@ -499,11 +499,13 @@ void lda::lda_uncollapsed::step() {
             #pragma omp for
             for (int ell = 0; ell < L_; ++ell) {
                 // sample gamma
+                double* zdata = new double[N_ * K_];
+                std::copy(z_bars_, z_bars_ + N_ * K_, zdata);
                 gsl_matrix Z;
                 Z.size1 = N_;
                 Z.size2 = K_;
                 Z.tda = K_;
-                Z.data = z_bars_;
+                Z.data = zdata;
                 Z.block = 0;
                 Z.owner = 0;
 
@@ -529,6 +531,7 @@ void lda::lda_uncollapsed::step() {
 
                 gsl_vector_free(tau);
                 gsl_vector_free(r);
+                delete [] zdata;
             }
         }
     }
