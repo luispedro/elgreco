@@ -1,6 +1,8 @@
 lda
 _lda.so
 lda.py
-lda.pyc
-lda_wrap.cxx
+elgreco_random.py
+_elgreco_random.so
+*.pyc
+*_wrap.cxx
 *.o

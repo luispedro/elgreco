@@ -13,13 +13,6 @@
 
 namespace{
 
-const floating _pi = 3.1415926535898;
-const floating _inv_two_pi = 1./std::sqrt(2. * _pi);
-
-floating normal_like(const floating value, const lda::normal_params& params, bool normalise=true) {
-    floating d = (value - params.mu) * std::sqrt(params.precision);
-    return _inv_two_pi * params.precision * std::exp( -d*d );
-}
 
 floating dirichlet_logP(const floating* value, const floating* alphas, int dim, bool normalise=true) {
     floating res = 0;
