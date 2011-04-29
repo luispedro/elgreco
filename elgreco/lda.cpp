@@ -151,6 +151,8 @@ floating dot_product(const F1* x, const F2* y, const int dim) {
     return res;
 }
 
+
+
 floating left_truncated_normal(random_source& R, const floating mu) {
     if (mu <= 0) {
         floating z;
@@ -352,17 +354,21 @@ void lda::lda_uncollapsed::step() {
     floating proposal[K_ * Nwords_];
     floating crossed[K_ * Nwords_];
     std::fill(proposal, proposal + K_*Nwords_, beta_);
+    floating f_count[K_*F_];
     floating f_sum[K_*F_];
     floating f_sum2[K_*F_];
+    std::fill(f_count, f_count + K_*F_, 0.);
     std::fill(f_sum, f_sum + K_*F_, 0.);
     std::fill(f_sum2, f_sum2 + K_*F_, 0.);
 
     #pragma omp parallel firstprivate(R2) shared(proposal, crossed)
     {
         floating* priv_proposal = new floating[K_*Nwords_];
+        floating* f_pcount = new floating[K_*F_];
         floating* f_priv = new floating[K_*F_];
         floating* f_priv2 = new floating[K_*F_];
         std::fill(priv_proposal, priv_proposal + K_*Nwords_, 0.);
+        std::fill(f_pcount, f_pcount + K_*F_, 0.);
         std::fill(f_priv, f_priv + K_*F_, 0.);
         std::fill(f_priv2, f_priv2 + K_*F_, 0.);
 
@@ -435,6 +441,7 @@ void lda::lda_uncollapsed::step() {
                 ++Tp[z];
                 floating fif = features_[i][f];
                 int kf = f*K_ + z;
+                ++f_pcount[kf];
                 f_priv[kf] += fif;
                 f_priv2[kf] += fif*fif;
             }
@@ -463,11 +470,13 @@ void lda::lda_uncollapsed::step() {
             floating* p = priv_proposal;
             for (int kj = 0; kj < K_*Nwords_; ++kj) proposal[kj] += *p++;
             for (int kf = 0; kf < K_*F_; ++kf) {
+                f_count[kf] += f_pcount[kf];
                 f_sum[kf] += f_priv[kf];
                 f_sum2[kf] += f_priv2[kf];
             }
         }
         delete [] priv_proposal;
+        delete [] f_pcount;
         delete [] f_priv;
         delete [] f_priv2;
 
@@ -478,14 +487,25 @@ void lda::lda_uncollapsed::step() {
             for (int f = 0; f < F_; ++f) {
                 // Check:
                 // 'http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.126.4603&rep=rep1&type=pdf'
-                // or
+                // [page 8] or
                 // http://en.wikipedia.org/wiki/Normal-gamma_distribution#Posterior_distribution_of_the_parameters
-                const floating sum = f_sum[f*K_ + k];
-                const floating sum2 = f_sum2[f*K_ + k];
-                const floating x_bar = sum/N_;
-                const floating tao = R.gamma(Ga_ + N_/2., Gb_ + (sum2 - 2*sum*x_bar + x_bar*x_bar)/2. + N_*Gn0_/2./(N_+Gn0_)*(x_bar-Gmu_)*(x_bar-Gmu_));
-                const floating mu = R.normal( N_*tao/(N_*tao + Gn0_ * tao)*x_bar + Gn0_*tao/(N_*tao+Gn0_*tao)*Gmu_, (N_+Gn0_)*tao);
-                normals_[k][f] = normal_params(mu, tao);
+                const int kf = f*K_ + k;
+                const floating n = f_count[kf];
+                if (n) {
+                    const floating sum = f_sum[kf];
+                    const floating sum2 = f_sum2[kf];
+                    const floating x_bar = sum/n;
+
+                    const floating alpha_n  = Ga_ + n/2;
+                    const floating beta_n = Gb_ + (sum2 - 2*sum*x_bar + n*x_bar*x_bar)/2. + n*Gn0_/2./(n+Gn0_)*(x_bar-Gmu_)*(x_bar-Gmu_);
+
+                    const floating kappa_n  = Gn0_ + n;
+                    const floating mu_n =  (Gn0_*Gmu_ + n * x_bar)/kappa_n;
+
+                    normals_[k][f] = normal_gamma(R2, mu_n, kappa_n, alpha_n, beta_n);
+                } else {
+                    normals_[k][f] = normal_gamma(R2, Gmu_, Gn0_, Ga_, Gb_);
+                }
             }
         }
         if (ls_) {
@@ -546,9 +566,7 @@ void lda::lda_uncollapsed::forward() {
     for (int k = 0; k != K_; ++k) {
         logdirichlet_sample_uniform(R, multinomials_[k], beta_, Nwords_);
         for (int f = 0; f < F_; ++f) {
-            const floating tao = R.gamma(Ga_, Gb_);
-            const floating mu = R.normal(Gn0_* Gmu_, Gn0_*tao);
-            normals_[k][f] = normal_params(mu, tao);
+            normals_[k][f] = normal_gamma(R, Gmu_, Gn0_, Ga_, Gb_);
         }
     }
     if (gamma_) std::fill(gamma_, gamma_ + K_ * L_, 0.);

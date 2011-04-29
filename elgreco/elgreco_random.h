@@ -5,6 +5,7 @@
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_sf_gamma.h>
 #include <cmath>
+#include <assert.h>
 typedef double floating;
 
 struct random_source {
@@ -71,6 +72,15 @@ inline
 floating normal_like(const floating value, const normal_params& params, bool normalise=true) {
     floating d = (value - params.mu) * params.precision;
     return _inv_two_pi * params.precision * std::exp( -d*d );
+}
+
+inline
+normal_params normal_gamma(random_source& R, const floating mu0, const floating kappa0, const floating alpha, const floating beta) {
+    assert(beta != 0.);
+    const floating tao = R.gamma(alpha, 1./beta);
+    assert(tao > 0);
+    const floating mu = (kappa0 * tao < 100 ? R.bayesian_normal(mu0, kappa0 * tao): mu0);
+    return normal_params(mu, tao);
 }
 #endif 
 
