@@ -255,7 +255,7 @@ lda::lda_uncollapsed::lda_uncollapsed(lda_data& words, lda_parameters params)
             std::fill(gamma_, gamma_ + K_* L_, 0.);
             for (int i = 0; i != N_; ++i) {
                 for (int ell = 0; ell != L_; ++ell) {
-                floating* yi = ys(i);
+                    floating* yi = ys(i);
                     yi[ell] = left_truncated_normal(R, 0);
                     if (!ls(i)[ell]) yi[ell] = -yi[ell];
                 }
@@ -338,7 +338,7 @@ void lda::lda_uncollapsed::step() {
     std::fill(f_count, f_count + K_*F_, 0.);
     std::fill(f_sum, f_sum + K_*F_, 0.);
     std::fill(f_sum2, f_sum2 + K_*F_, 0.);
-
+    const floating Vp_ = 8.;
     #pragma omp parallel firstprivate(R2) shared(proposal, crossed)
     {
         floating* priv_proposal = new floating[K_*Nwords_];
@@ -435,8 +435,12 @@ void lda::lda_uncollapsed::step() {
                 floating* yi = ys(i);
                 for (int ell = 0; ell != L_; ++ell) {
                     floating mu = dot_product(zb, gamma(ell), K_);
+                    // Normalise:
+                    mu = mu*Vp_/(1.+Vp_);
+                    const floating p2 = Vp_/(1.+Vp_);
                     if (!li[ell]) mu = -mu;
-                    yi[ell] = mu + left_truncated_normal(R2, -mu);
+                    floating s = left_truncated_normal(R2, -mu);
+                    yi[ell] = mu + s/std::sqrt(p2);
                     if (!li[ell]) yi[ell] = -yi[ell];
                     //std::cerr << "mu_i: " << mu << "; ys_i: " << yi[ell] << " (ls_[i]: " << floating(ls_[i]) << ")\n";
                 }
