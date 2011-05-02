@@ -1,6 +1,7 @@
 #ifndef LPC_ELGRECO_RANDOM_H_THU_APR_28_22_16_31_EDT_2011
 #define LPC_ELGRECO_RANDOM_H_THU_APR_28_22_16_31_EDT_2011
 
+#include <iostream>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_sf_gamma.h>
@@ -81,6 +82,35 @@ normal_params normal_gamma(random_source& R, const floating mu0, const floating 
     assert(tao > 0);
     const floating mu = (kappa0 * tao < 100 ? R.bayesian_normal(mu0, kappa0 * tao): mu0);
     return normal_params(mu, tao);
+}
+
+inline
+floating left_truncated_normal(random_source& R, const floating mu) {
+    // For an implementation reference, see
+    // Simulation of truncated normal variables
+    // by Christian P. Robert
+    //
+    // http://arxiv.org/abs/0907.4010
+    if (mu <= 0) {
+        floating z;
+        do {
+            z = R.normal(0., 1.);
+        } while (z < mu);
+        return z;
+    } else {
+        const floating alphastar = (mu + std::sqrt(mu*mu + 4))/2.;
+        int iters = 0;
+        while (true) {
+            const floating z = mu + R.exponential(1./alphastar);
+            const floating rho = std::exp(-(z-alphastar)*(z-alphastar)/2.);
+            const floating u = R.uniform01();
+            if (u < rho) return z;
+            ++iters;
+            if (iters > 100) {
+                std::cerr << ">100 iters for " << mu << '\n';
+            }
+        }
+    }
 }
 #endif 
 
