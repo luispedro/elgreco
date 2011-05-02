@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2011, Luis Pedro Coelho <luis@luispedro.org>
 
-from distutils.core import setup, Extension
+from numpy.distutils.core import setup, Extension
 
 lda_module = Extension(
                 'elgreco._lda',
