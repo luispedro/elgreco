@@ -60,7 +60,7 @@ lda_data load(std::istream &in);
 struct lda_base {
     public:
         lda_base(lda_data& data, lda_parameters params);
-        ~lda_base() {
+        virtual ~lda_base() {
             delete [] counts_[0];
             delete [] counts_;
             delete [] counts_idx_[0];
