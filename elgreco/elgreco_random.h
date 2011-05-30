@@ -86,6 +86,7 @@ normal_params normal_gamma(random_source& R, const floating mu0, const floating 
 
 inline
 floating left_truncated_normal(random_source& R, const floating mu) {
+    assert(!std::isnan(mu));
     // For an implementation reference, see
     // Simulation of truncated normal variables
     // by Christian P. Robert
