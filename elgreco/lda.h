@@ -27,7 +27,7 @@ struct lda_data {
             { }
         int nr_words() const {
             int res = 0;
-            for (int i = 0; i != docs_.size(); ++i) res += size(i);
+            for (unsigned int i = 0; i != docs_.size(); ++i) res += size(i);
             return res;
         }
         void push_back_doc(const std::vector<int>& nd, const std::vector<floating>& nf, const std::vector<bool>& nl) {
