@@ -2,6 +2,11 @@
 # Copyright (C) 2011, Luis Pedro Coelho <luis@luispedro.org>
 
 from numpy.distutils.core import setup, Extension
+import os
+
+undef_macros=[]
+if os.environ.get('DEBUG'):
+    undef_macros=['NDEBUG']
 
 lda_module = Extension(
                 'elgreco._lda',
@@ -9,6 +14,7 @@ lda_module = Extension(
                 libraries=['gsl', 'gslcblas'],
                 extra_compile_args=['-fopenmp'],
                 extra_link_args=['-lgomp'],
+                undef_macros=undef_macros,
                )
 
 setup (name = 'elgreco',
