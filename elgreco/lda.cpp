@@ -208,20 +208,17 @@ lda::lda_base::lda_base(lda_data& input, lda_parameters params)
         for (int i = 0; i != N_; ++i) {
             counts_idx_[i] = j;
             counts_[i] = cj;
-            floating c = 1;
-            int prev = input(i, 0);
-            for (int ci = 1; ci < input.size(i); ++ci) {
-                if (input(i, ci) != prev) {
-                    *j++ = prev;
-                    *cj++ = int(c);
-                    prev = input(i, ci);
-                    c = 1;
-                } else {
+            int ci = 0;
+            while (ci < input.size(i)) {
+                const int anchor = input(i, ci++);
+                int c = 1;
+                while (ci < input.size(i) && input(i, ci) == anchor) {
+                    ++ci;
                     ++c;
                 }
+                *j++ = anchor;
+                *cj++ = c;
             }
-            *j++ = prev;
-            *cj++ = int(c);
             *j++ = -1;
         }
     }

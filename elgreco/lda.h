@@ -42,7 +42,7 @@ struct lda_data {
         std::vector<int>& at(int d) { return docs_[d]; }
         int nr_docs() const { return docs_.size(); }
         int size(int d) const { return docs_[d].size(); }
-        int operator()(int d, int w) const { return docs_[d][w]; }
+        int operator()(int d, int w) const { return docs_.at(d).at(w); }
         int nr_terms() const { return nr_terms_; }
         floating feature(int d, int w) const { return features_[d][w]; }
         int nr_features() const { return features_[0].size(); }
