@@ -1,5 +1,13 @@
-%module lda
+%exception {
+    try {
+        $action
+    } catch (const char* msg) {
+        PyErr_SetString(PyExc_RuntimeError, msg);
+        return NULL;
+    }
+}
 
+%module lda
 %include "std_vector.i"
 namespace std {
     %template(vectori) std::vector<int>;
@@ -24,4 +32,5 @@ namespace std {
 
 
 %include "lda.h"
+
 

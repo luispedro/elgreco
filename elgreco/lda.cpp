@@ -170,6 +170,12 @@ lda::lda_base::lda_base(lda_data& input, lda_parameters params)
     ,Gn0_(1)
     ,Gmu_(0.)
     {
+        if (alpha_ <= 0) {
+            throw "elgreco.lda: alpha must be strictly positive";
+        }
+        if (beta_ <= 0) {
+            throw "elgreco.lda: beta must be strictly positive";
+        }
         int Nitems = 0;
         for (int i = 0; i != input.nr_docs(); ++i) {
             std::sort(input.at(i).begin(), input.at(i).end());
