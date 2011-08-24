@@ -25,6 +25,6 @@ sampler.forward()
 logps = [sampler.logP()]
 for i in xrange(100):
     sampler.step()
-    lp = (sampler.logP())
-    print lp
-    logps.append(sampler.logP())
+    logp = sampler.logP()
+    print logp
+    logps.append(logp)
