@@ -142,18 +142,18 @@ struct lda_uncollapsed : lda_base {
         int set_logbeta(int k, float* res, int size);
         int set_theta(int i, float* res, int size);
 
-        int project_one(const std::vector<int>&, float* res, int size);
+        int project_one(const std::vector<int>&, const std::vector<float>&, float* res, int size);
         float score_one(int ell, const float* array, int size) const;
         void nosample(int i) { sample_[i] = false; }
         void sample(int i) { sample_[i] = true; }
 
-        floating logperplexity(const std::vector<int>&);
+        floating logperplexity(const std::vector<int>&, const std::vector<float>& fs);
 
         void print_topics(std::ostream&) const;
         void print_words(std::ostream&) const;
 
     private:
-        void sample_one(const std::vector<int>&, floating*);
+        void sample_one(const std::vector<int>&, const std::vector<float>&, floating*);
 
         floating** multinomials_;
         normal_params** normals_;

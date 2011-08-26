@@ -743,10 +743,10 @@ int lda::lda_uncollapsed::set_theta(int i, float* src, int size) {
     return K_;
 }
 
-int lda::lda_uncollapsed::project_one(const std::vector<int>& words, float* res, int size) {
+int lda::lda_uncollapsed::project_one(const std::vector<int>& words, const std::vector<float>& fs, float* res, int size) {
     if (size != K_) return 0;
     floating thetas[K_];
-    this->sample_one(words, thetas);
+    this->sample_one(words, fs, thetas);
     std::copy(thetas, thetas + K_, res);
     return size;
 }
@@ -756,9 +756,9 @@ float lda::lda_uncollapsed::score_one(int ell, const float* res, int size) const
     return dot_product(res, gamma(ell), size);
 }
 
-floating lda::lda_uncollapsed::logperplexity(const std::vector<int>& words) {
+floating lda::lda_uncollapsed::logperplexity(const std::vector<int>& words, const std::vector<float>& fs) {
     floating thetas[K_];
-    this->sample_one(words, thetas);
+    this->sample_one(words, fs, thetas);
     floating crossed[K_ * Nwords_];
     floating offset[Nwords_];
 
@@ -786,12 +786,13 @@ floating lda::lda_uncollapsed::logperplexity(const std::vector<int>& words) {
     return logp;
 }
 
-void lda::lda_uncollapsed::sample_one(const std::vector<int>& words, floating* thetas) {
+void lda::lda_uncollapsed::sample_one(const std::vector<int>& words, const std::vector<float>& fs, floating* thetas) {
     const int nr_iters = 20;
     std::fill(thetas, thetas + K_, 1.);
 
     floating crossed[K_ * Nwords_];
     floating offset[Nwords_];
+    floating normals[F_][K_];
     const int docsize = words.size();
 
     for (int j = 0; j < Nwords_; ++j) {
@@ -806,6 +807,11 @@ void lda::lda_uncollapsed::sample_one(const std::vector<int>& words, floating* t
             crossed_j[k] = std::exp(crossed_j[k] - max);
         }
     }
+    for (int f = 0; f < F_; ++f) {
+        for (int k = 0; k != K_; ++k) {
+            normals[f][k] = normal_like(fs[f], normals_[k][f]);
+        }
+    }
     for (int it = 0; it != nr_iters; ++it) {
         floating proposal[K_];
         std::fill(proposal, proposal + K_, alpha_);
@@ -814,6 +820,14 @@ void lda::lda_uncollapsed::sample_one(const std::vector<int>& words, floating* t
             floating* crossed_j = crossed + words[j]*K_;
             for (int k = 0; k != K_; ++k) {
                 p[k] = thetas[k]*crossed_j[k];
+            }
+            int z = categorical_sample(R, p, K_);
+            ++proposal[z];
+        }
+        for (int f = 0; f != F_; ++f) {
+            floating p[K_];
+            for (int k = 0; k != K_; ++k) {
+                p[k] = thetas[k] * normals[f][k];
             }
             int z = categorical_sample(R, p, K_);
             ++proposal[z];
