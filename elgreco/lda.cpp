@@ -130,10 +130,13 @@ inline
 void ps_to_cps(floating* ps, int dim) {
     for (int i = 1; i != dim; ++i) ps[i] += ps[i-1];
     if (ps[dim-1] == 0) {
-        for (int i = 0; i != dim; ++i) ps[i] = i/(dim-1);
+        const floating dim_inv = 1./(dim-1);
+        for (int i = 0; i != dim; ++i) ps[i] = i*dim_inv;
     } else {
-        for (int i = 0; i != dim; ++i) ps[i] /= ps[dim-1];
+        const floating ps_inv = 1./ps[dim-1];
+        for (int i = 0; i != dim; ++i) ps[i] *= ps_inv;
     }
+    assert(!std::isnan(ps[dim-1]));
 }
 
 int categorical_sample(random_source& R, const floating* ps, int dim) {
