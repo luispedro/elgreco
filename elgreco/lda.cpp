@@ -116,7 +116,8 @@ int categorical_sample_norm(random_source& R, const floating* ps, int dim) {
 int categorical_sample_cps(random_source& R, const floating* cps, int dim) {
     floating val = R.uniform01();
     if (val < cps[0]) return 0;
-    assert(val < cps[dim-1]);
+    assert(!std::isnan(cps[dim-1]));
+    assert(val <= cps[dim-1]);
     int a = 0, b = dim;
     while ((a+1) < b) {
         const int m = a + (b-a)/2;

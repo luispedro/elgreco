@@ -71,8 +71,10 @@ const floating _inv_two_pi = 1./std::sqrt(2. * _pi);
 
 inline
 floating normal_like(const floating value, const normal_params& params, bool normalise=true) {
-    floating d = (value - params.mu) * params.precision;
-    return _inv_two_pi * params.precision * std::exp( -d*d );
+    const floating d = (value - params.mu) * params.precision;
+    const floating r = _inv_two_pi * params.precision * std::exp( -d*d );
+    assert(!std::isnan(r));
+    return r;
 }
 
 inline
