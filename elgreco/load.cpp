@@ -4,7 +4,6 @@
 #include "lda.h"
 
 lda::lda_data lda::load(std::istream& in) {
-    int nr_docs = 0;
     std::string line;
     lda_data res;
     int max_term = 0;

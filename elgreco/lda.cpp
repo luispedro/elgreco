@@ -637,7 +637,6 @@ floating lda::lda_collapsed::logP(bool normalise) const {
     }
     #pragma omp parallel for reduction(+:logp)
     for (int i = 0; i < N_; ++i) {
-        const int* zi = zi_[i];
         floating counts[K_];
         int count = 0;
         std::fill(counts, counts + K_, 0);
@@ -779,7 +778,7 @@ floating lda::lda_uncollapsed::logperplexity(const std::vector<int>& words, cons
         }
     }
     floating logp = dirichlet_logP_uniform(thetas, alpha_, K_, false);
-    for (int j = 0; j != words.size(); ++j) {
+    for (unsigned int j = 0; j != words.size(); ++j) {
         floating sum_k = 0;
         floating* crossed_j = crossed + words[j]*K_;
         for (int k = 0; k != K_; ++k) {
