@@ -710,6 +710,97 @@ void lda::lda_collapsed::print_topics(std::ostream& out) const {
         out << '\n';
     }
 }
+void lda::lda_uncollapsed::save_model(std::ostream& out) const {
+    using std::endl;
+    out << N_ << endl;
+    out << K_ << endl;
+    out << F_ << endl;
+    out << L_ << endl;
+    out << Nwords_ << endl;
+    out << alpha_ << endl;
+    out << beta_ << endl;
+    out << Ga_ << endl;
+    out << Gb_ << endl;
+    out << Gn0_ << endl;
+    out << Gmu_ << endl;
+    out << endl;
+    out << endl;
+    for (int k = 0; k != K_; ++k) {
+        const floating* m = multinomials_[k];
+        for (int j = 0; j != Nwords_; ++j) {
+            out << m[j] << '\t';
+        }
+        out << endl;
+
+        for (int f = 0; f != F_; ++f) {
+            out << normals_[k][f].mu << ' ' << normals_[k][f].precision << '\t';
+        }
+        out << endl;
+    }
+    out << endl;
+    for (int i = 0; i != N_; ++i) {
+        for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
+            for (int cji = 0; cji != (*cj); ++cji) {
+                out << *j << '\t';
+            }
+        }
+        out << endl;
+
+        const floating* T = thetas(i);
+        for (int k = 0; k != K_; ++k) {
+            out << T[k] << '\t';
+        }
+        out << endl;
+
+        for (int f = 0; f != F_; ++f) {
+            out << features_[i][f] << '\t';
+        }
+        out << endl;
+
+        if (ls_) {
+            const int* zs = zs_[i];
+            const int Ni = zs[0];
+            for (int j = 0; j != (1+Ni); ++j) {
+                out << zs[j] << '\t';
+            }
+            out << endl;
+
+            const floating* li = ls(i);
+            const floating* yi = ys(i);
+            for (int ell = 0; ell != L_; ++ell) {
+                out << yi[ell] << ' ' << li[ell] << '\t';
+            }
+            out << endl;
+        }
+    }
+    if (ls_) {
+        for (int ell = 0; ell != L_; ++ell) {
+            const floating* gl = gamma(ell);
+            for (int k = 0; k != K_; ++k) {
+                out << gl[k] << '\t';
+            }
+            out << endl;
+        }
+    }
+}
+void lda::lda_collapsed::save_model(std::ostream& out) const {
+    using std::endl;
+    out << N_ << endl;
+    out << K_ << endl;
+    out << F_ << endl;
+    out << L_ << endl;
+    out << Nwords_ << endl;
+    out << alpha_ << endl;
+    out << beta_ << endl;
+    out << Ga_ << endl;
+    out << Gb_ << endl;
+    out << Gn0_ << endl;
+    out << Gmu_ << endl;
+    out << endl;
+    out << endl;
+    out << "NOT IMPLEMENTED! Go Away\n\n";
+}
+
 
 int lda::lda_uncollapsed::retrieve_logbeta(int k, float* res, int size) const {
     if (size != Nwords_) return 0;

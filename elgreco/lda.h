@@ -76,6 +76,8 @@ struct lda_base {
         virtual void print_topics(std::ostream&) const = 0;
         virtual void print_words(std::ostream&) const = 0;
 
+        virtual void save_model(std::ostream&) const = 0;
+
         int nr_topics() const { return K_; }
         int nr_labels() const { return L_; }
 
@@ -151,6 +153,7 @@ struct lda_uncollapsed : lda_base {
 
         void print_topics(std::ostream&) const;
         void print_words(std::ostream&) const;
+        void save_model(std::ostream&) const;
 
     private:
         void sample_one(const std::vector<int>&, const std::vector<float>&, floating*);
@@ -159,6 +162,7 @@ struct lda_uncollapsed : lda_base {
         normal_params** normals_;
 
         floating* thetas(int i) { return thetas_ + i*K_; }
+        const floating* thetas(int i) const { return thetas_ + i*K_; }
         floating* thetas_;
 
         bool* sample_;
@@ -194,6 +198,7 @@ struct lda_collapsed : lda_base {
 
         void print_topics(std::ostream&) const;
         void print_words(std::ostream&) const;
+        void save_model(std::ostream&) const;
     private:
         int* z_;
         int** zi_;
