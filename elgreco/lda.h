@@ -3,6 +3,7 @@
 #include <vector>
 #include <iostream>
 #include <cmath>
+#include <fstream>
 
 #include "elgreco_random.h"
 
@@ -77,6 +78,10 @@ struct lda_base {
         virtual void print_words(std::ostream&) const = 0;
 
         virtual void save_model(std::ostream&) const = 0;
+        void save_to(const char* fname) {
+            std::ofstream out(fname);
+            save_model(out);
+        }
 
         int nr_topics() const { return K_; }
         int nr_labels() const { return L_; }
