@@ -443,8 +443,8 @@ void lda::lda_uncollapsed::step() {
                 for (int ell = 0; ell != L_; ++ell) {
                     floating mu = dot_product(zb, gamma(ell), K_);
                     // Normalise:
-                    mu = mu*Vp_/(1.+Vp_);
                     const floating p2 = Vp_/(1.+Vp_);
+                    mu *= p2;
                     if (!li[ell]) mu = -mu;
                     floating s = left_truncated_normal(R2, -mu);
                     yi[ell] = mu + s/std::sqrt(p2);
