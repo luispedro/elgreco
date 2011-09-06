@@ -78,9 +78,15 @@ struct lda_base {
         virtual void print_words(std::ostream&) const = 0;
 
         virtual void save_model(std::ostream&) const = 0;
-        void save_to(const char* fname) {
+        void save_to(const char* fname) const {
             std::ofstream out(fname);
             save_model(out);
+        }
+
+        virtual void load_model(std::istream&) = 0;
+        void load_from(const char* fname) {
+            std::ifstream in(fname);
+            load_model(in);
         }
 
         int nr_topics() const { return K_; }
@@ -159,6 +165,7 @@ struct lda_uncollapsed : lda_base {
         void print_topics(std::ostream&) const;
         void print_words(std::ostream&) const;
         void save_model(std::ostream&) const;
+        void load_model(std::istream&);
 
     private:
         void sample_one(const std::vector<int>&, const std::vector<float>&, floating*);
@@ -204,6 +211,7 @@ struct lda_collapsed : lda_base {
         void print_topics(std::ostream&) const;
         void print_words(std::ostream&) const;
         void save_model(std::ostream&) const;
+        void load_model(std::istream&);
     private:
         int* z_;
         int** zi_;

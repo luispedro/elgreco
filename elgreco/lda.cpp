@@ -783,6 +783,78 @@ void lda::lda_uncollapsed::save_model(std::ostream& out) const {
         }
     }
 }
+void lda::lda_uncollapsed::load_model(std::istream& in) {
+#define CHECK(type,var) do { type t; in >> t; if (var != t) { throw "Check failed: " #var " is not what is expected\n"; } } while(0)
+    CHECK(int, N_);
+    CHECK(int, K_);
+    CHECK(int, F_);
+    CHECK(int, L_);
+    CHECK(int, Nwords_);
+    CHECK(floating, alpha_);
+    CHECK(floating, beta_);
+    CHECK(floating, Ga_);
+    CHECK(floating, Gb_);
+    CHECK(floating, Gn0_);
+    CHECK(floating, Gmu_);
+
+    for (int k = 0; k != K_; ++k) {
+        floating* m = multinomials_[k];
+        for (int j = 0; j != Nwords_; ++j) {
+            in >> m[j];
+        }
+
+        for (int f = 0; f != F_; ++f) {
+            in >> normals_[k][f].mu >> normals_[k][f].precision;
+        }
+    }
+
+    for (int i = 0; i != N_; ++i) {
+        for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
+            for (int cji = 0; cji != (*cj); ++cji) {
+                int t;
+                in >> t;
+                if (t != *j) {
+                    throw "*j was expected\n";
+                }
+            }
+        }
+
+        floating* T = thetas(i);
+        for (int k = 0; k != K_; ++k) {
+            in >> T[k];
+        }
+
+        for (int f = 0; f != F_; ++f) {
+            floating t;
+            in >> t;
+            /*if (t != features_[i][f]) {
+                throw "features_[i][f] was expected\n";
+            }*/
+        }
+
+        if (ls_) {
+            int* zs = zs_[i];
+            const int Ni = zs[0];
+            for (int j = 0; j != (1+Ni); ++j) {
+                in >> zs[j];
+            }
+
+            floating* yi = ys(i);
+            floating t;
+            for (int ell = 0; ell != L_; ++ell) {
+                in >> yi[ell] >> t;
+            }
+        }
+    }
+    if (ls_) {
+        for (int ell = 0; ell != L_; ++ell) {
+            floating* gl = gamma(ell);
+            for (int k = 0; k != K_; ++k) {
+                in >> gl[k];
+            }
+        }
+    }
+}
 void lda::lda_collapsed::save_model(std::ostream& out) const {
     using std::endl;
     out << N_ << endl;
@@ -799,6 +871,11 @@ void lda::lda_collapsed::save_model(std::ostream& out) const {
     out << endl;
     out << endl;
     out << "NOT IMPLEMENTED! Go Away\n\n";
+    throw "Not implemented. GO AWAY\n";
+}
+
+void lda::lda_collapsed::load_model(std::istream& out) {
+    throw "Not implemented.\n";
 }
 
 
