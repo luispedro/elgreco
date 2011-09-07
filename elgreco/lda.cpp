@@ -932,6 +932,7 @@ int lda::lda_uncollapsed::project_one(const std::vector<int>& words, const std::
 }
 
 float lda::lda_uncollapsed::score_one(int ell, const float* res, int size) const {
+    if (ell >= L_) return -1;
     if (size != K_) return 0;
     return dot_product(res, gamma(ell), size);
 }
