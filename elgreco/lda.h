@@ -151,6 +151,7 @@ struct lda_uncollapsed : lda_base {
         int retrieve_theta(int i, float* res, int size) const;
         int retrieve_gamma(int ell, float* res, int size) const;
         int retrieve_ys(int i, float* res, int size) const;
+        int retrieve_z_bar(int i, float* res, int size) const;
 
         int set_logbeta(int k, float* res, int size);
         int set_theta(int i, float* res, int size);
@@ -180,6 +181,7 @@ struct lda_uncollapsed : lda_base {
         bool* sample_;
 
         floating* z_bar(int i) { return z_bars_ + i*K_; }
+        const floating* z_bar(int i) const { return z_bars_ + i*K_; }
         floating* z_bars_;
 
         int** zs_;

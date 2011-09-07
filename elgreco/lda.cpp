@@ -885,6 +885,7 @@ int lda::lda_uncollapsed::retrieve_logbeta(int k, float* res, int size) const {
     return Nwords_;
 }
 int lda::lda_uncollapsed::retrieve_theta(int i, float* res, int size) const {
+    if (i >= N_) return -1;
     if (size != K_) return 0;
     const floating* m = thetas_ + i*K_;
     std::copy(m, m + K_, res);
@@ -896,9 +897,17 @@ int lda::lda_uncollapsed::retrieve_gamma(int ell, float* res, int size) const {
     return K_;
 }
 int lda::lda_uncollapsed::retrieve_ys(int i, float* res, int size) const {
+    if (i >= N_) return -1;
     if (size != L_) return 0;
     std::copy(ys(i), ys(i+1), res);
     return L_;
+}
+
+int lda::lda_uncollapsed::retrieve_z_bar(int i, float* res, int size) const {
+    if (i >= N_) return -1;
+    if (size != K_) return 0;
+    std::copy(z_bar(i), z_bar(i+1), res);
+    return K_;
 }
 
 
