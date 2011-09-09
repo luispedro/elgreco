@@ -707,7 +707,7 @@ void lda::lda_collapsed::solve_gammas() {
 
     gsl_vector b;
     b.size = N_;
-    b.stride = L_;
+    b.stride = 1;
     b.data = y.get();
     b.block = 0;
     b.owner = 0;
@@ -739,6 +739,7 @@ void lda::lda_collapsed::solve_gammas() {
 
         gsl_linalg_QR_decomp(&Z, tau);
         gsl_linalg_QR_lssolve(&Z, tau, &b, &gammav, r);
+        assert(!std::isnan(gammav.data[0]));
     }
     gsl_vector_free(tau);
     gsl_vector_free(r);
