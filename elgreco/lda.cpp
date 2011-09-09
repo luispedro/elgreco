@@ -143,7 +143,7 @@ int categorical_sample(random_source& R, const floating* ps, int dim) {
 
 int categorical_sample_logps(random_source& R, const floating* logps, int dim) {
     floating p[dim];
-    const floating* max = std::max(logps, logps + dim);
+    const floating* max = std::max_element(logps, logps + dim);
     for (int i = 0; i != dim; ++i) {
         p[i] = std::exp(logps[i] - *max);
     }
