@@ -103,16 +103,6 @@ bool binomial_sample(random_source& R, floating p) {
     return R.uniform01() < p;
 }
 
-int categorical_sample_norm(random_source& R, const floating* ps, int dim) {
-    const floating val = R.uniform01();
-    floating s = 0;
-    for (int i = 0; i != dim; ++i) {
-        s += ps[i];
-        if (val < s) return i;
-    }
-    return dim - 1;
-}
-
 int categorical_sample_cps(random_source& R, const floating* cps, int dim) {
     floating val = R.uniform01();
     if (val < cps[0]) return 0;
