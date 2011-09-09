@@ -13,7 +13,6 @@ namespace lda {
 struct lda_parameters {
     unsigned seed;
     int nr_topics;
-    int nr_iterations;
     int nr_labels;
     floating alpha;
     floating beta;

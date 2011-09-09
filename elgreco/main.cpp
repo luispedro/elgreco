@@ -53,12 +53,12 @@ int main(int argc, char** argv) {
 
     lda_parameters params;
     params.nr_topics = vm["k"].as<unsigned>();
-    params.nr_iterations = vm["iters"].as<unsigned>();
     params.seed = vm["seed"].as<unsigned>();
     params.alpha = vm["alpha"].as<float>();
     params.beta = vm["beta"].as<float>();
     std::string mode = vm["mode"].as<std::string>();
     std::string sampler = vm["sampler"].as<std::string>();
+    const unsigned nr_iterations = vm["iters"].as<unsigned>();
     if (mode == "estimate") {
         boost::scoped_ptr<lda_base> state;
         if (sampler == "uncollapsed") {
@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
         }
         state->forward();
         const unsigned print_iters = vm["print-iters"].as<unsigned>();
-        for (int i = 0; i != params.nr_iterations; ++i) {
+        for (int i = 0; i != nr_iterations; ++i) {
             if (print_iters && (i % print_iters) == 0) {
                 std::cout << state->logP() << '\n';
             }
