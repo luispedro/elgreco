@@ -228,11 +228,11 @@ struct lda_collapsed : lda_base {
 
         int* size_;
 
-        floating* sum_f(int f) { return sum_f_ + f*K_; }
-        const floating* sum_f(int f) const { return sum_f_ + f*K_; }
+        floating* sum_f(int f) { assert(f < F_); return sum_f_ + f*K_; }
+        const floating* sum_f(int f) const { assert(f < F_); return sum_f_ + f*K_; }
 
-        floating* sum_f2(int f) { return sum_f2_ + f*K_; }
-        const floating* sum_f2(int f) const { return sum_f2_ + f*K_; }
+        floating* sum_f2(int f) { assert(f < F_); return sum_f2_ + f*K_; }
+        const floating* sum_f2(int f) const { assert(f < F_); return sum_f2_ + f*K_; }
 
         floating* sum_f_;
         floating* sum_f2_;
