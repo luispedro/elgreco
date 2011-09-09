@@ -4,12 +4,15 @@
 #include <cstring>
 #include <limits>
 #include <assert.h>
+#include <boost/scoped_array.hpp>
+#include <boost/scoped_ptr.hpp>
 
 #include <omp.h>
 
 #include "lda.h"
 
 #include <gsl/gsl_linalg.h>
+#include <gsl/gsl_sf.h>
 
 namespace{
 
@@ -138,6 +141,15 @@ int categorical_sample(random_source& R, const floating* ps, int dim) {
     return categorical_sample_cps(R, cps, dim);
 }
 
+int categorical_sample_logps(random_source& R, const floating* logps, int dim) {
+    floating p[dim];
+    const floating* max = std::max(logps, logps + dim);
+    for (int i = 0; i != dim; ++i) {
+        p[i] = std::exp(logps[i] - *max);
+    }
+    return categorical_sample(R, p, dim);
+}
+
 template<typename F1, typename F2>
 floating dot_product(const F1* x, const F2* y, const int dim) {
     floating res = 0;
@@ -145,8 +157,10 @@ floating dot_product(const F1* x, const F2* y, const int dim) {
     return res;
 }
 
-
-
+floating log_phi(const double x) {
+    const floating phi = (1./2. + gsl_sf_erf(x))/2.;
+    return std::log(phi);
+}
 
 }
 
@@ -269,14 +283,18 @@ lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
     :lda_base(words, params) {
         z_ = new int[words.nr_words()];
         zi_ = new int*[N_+1];
+        size_ = new int[N_];
         zi_[0] = z_;
         int* zinext = z_;
         for (int i = 0; i != N_; ++i) {
+            int c = 0;
             for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
                 for (int cij = 0; cij != *cj; ++cij) {
                     ++zinext;
+                    ++c;
                 }
             }
+            size_[i] = (c + F_);
             zi_[i+1] = zinext;
         }
         topic_ = new int[K_];
@@ -291,11 +309,29 @@ lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
             topic_term_[t] = topic_term_[t-1] + K_;
         }
         topic_sum_ = new int[N_];
+
+        topic_numeric_count_ = new int*[F_];
+        topic_numeric_count_[0] = new int[F_*K_];
+        for (int f = 1; f != F_; ++f) {
+            topic_numeric_count_[f] = topic_numeric_count_[f-1] + K_;
+        }
     }
 
 void lda::lda_collapsed::step() {
     int* z = z_;
+    floating* zb_gamma = new floating[L_];
     for (int i = 0; i != N_; ++i) {
+        floating z_bar[K_];
+        std::fill(z_bar, z_bar + K_, 0);
+        const int Ni = size_[i] + F_;
+        for (int d = 0; d != Ni; ++d) {
+            ++z_bar[z[d]];
+        }
+        for (int k = 0; k != K_; ++k) z_bar[k] /= Ni;
+        for (int ell = 0; ell != L_; ++ell) {
+            zb_gamma[ell] = dot_product(z_bar, gamma(ell), K_);
+        }
+
         for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
             for (int cij = 0; cij != *cj; ++cij) {
                 floating p[K_];
@@ -309,6 +345,11 @@ void lda::lda_collapsed::step() {
                                 (topic_[k] + beta_) *
                         (topic_count_[i][k] + alpha_)/
                                 (topic_sum_[i] + alpha_ - 1);
+                    for (int ell = 0; ell != L_; ++ell) {
+                        const floating delta = gamma(ell)[k] - gamma(ell)[ok];
+                        const floating s = ls(i)[ell] ? +1 : -1;
+                        p[k] *= erf(s * (zb_gamma[ell]+delta));
+                    }
                     if (k > 0) p[k] += p[k-1];
                 }
                 for (int k = 0; k != K_; ++k) p[k] /= p[K_-1];
@@ -321,7 +362,40 @@ void lda::lda_collapsed::step() {
                 ++topic_term_[*j][k];
             }
         }
+        for (int f = 0; f != F_; ++f) {
+            const floating fv = features_[i][f];
+            floating p[K_];
+            const int ok = *z;
+            --topic_count_[i][ok];
+            --topic_numeric_count_[f][ok];
+            floating* sf = sum_f(f);
+            floating* sf2 = sum_f2(f);
+            sf[ok] -= fv;
+            sf2[ok] -= fv*fv;
+            for (int k = 0; k != K_; ++k) {
+                const floating n = topic_numeric_count_[f][k];
+                const floating n_prime = Gn0_ + n;
+                const floating f_bar = (n > 0 ? sf[k]/n : 0.);
+                const floating f2_bar = (n > 0 ? sf2[k]/n : 0.);
+                floating a_prime = Ga_ + n/2.;
+                floating b_prime = Gb_ + (f_bar*f_bar - n*f2_bar)/2. + .5*n*Gn0_*(f_bar - Gmu_)*(f_bar - Gmu_)/n_prime; ///FIXME
+                p[k] = log(topic_count_[i][k] + alpha_)+gsl_sf_lngamma(a_prime)+a_prime * log(b_prime) + sqrt(n_prime);
+                for (int ell = 0; ell != L_; ++ell) {
+                    const floating delta = gamma(ell)[k] - gamma(ell)[ok];
+                    const floating s = ls(i)[ell] ? +1 : -1;
+                    p[k] += log_phi(s * (zb_gamma[ell]+delta));
+                }
+            }
+
+            const int k = categorical_sample_logps(R, p, K_);
+            *z++ = k;
+            ++topic_count_[i][ok];
+            ++topic_numeric_count_[f][k];
+            sf[k] += fv;
+            sf2[k] += fv*fv;
+        }
     }
+    this->solve_gammas();
 }
 void lda::lda_uncollapsed::step() {
     random_source R2 = R;
@@ -557,7 +631,11 @@ void lda::lda_uncollapsed::forward() {
 
 void lda::lda_collapsed::forward() {
     std::fill(topic_, topic_ + K_, 0);
+    std::fill(sum_f_, sum_f_ + K_*F_, 0.);
+    std::fill(sum_f2_, sum_f2_ + K_*F_, 0.);
     int* z = z_;
+    floating vs[N_ * L_];
+    std::fill(vs, vs + N_ *L_, 0.);
     for (int i = 0; i != N_; ++i) {
         for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
             for (int cji = 0; cji != (*cj); ++cji) {
@@ -569,7 +647,74 @@ void lda::lda_collapsed::forward() {
                 ++topic_[k];
             }
         }
+        for (int f = 0; f != F_; ++f) {
+            floating* sf = sum_f(i);
+            floating* sf2 = sum_f2(i);
+            const floating fv = features_[i][f];
+            const int k = R.random_int(0, K_);
+            *z++ = k;
+            ++topic_count_[i][k];
+            ++topic_sum_[i];
+            ++topic_[k];
+            sf[k] += fv;
+            sf2[k] += fv*fv;
+        }
     }
+    this->solve_gammas();
+}
+
+void lda::lda_collapsed::solve_gammas() {
+    if (!L_) return;
+    using boost::scoped_array;
+    scoped_array<double> zbars(new double[N_ * K_]);
+    scoped_array<double> zdata(new double[N_*K_]);
+    scoped_array<double> y(new double[N_]);
+    gsl_matrix Z;
+    Z.size1 = N_;
+    Z.size2 = K_;
+    Z.tda = K_;
+    Z.data = zdata.get();
+    Z.block = 0;
+    Z.owner = 0;
+
+    gsl_vector b;
+    b.size = N_;
+    b.stride = L_;
+    b.data = y.get();
+    b.block = 0;
+    b.owner = 0;
+
+    gsl_vector gammav;
+    gammav.size = K_;
+    gammav.stride = 1;
+    gammav.block = 0;
+    gammav.owner = 0;
+
+    gsl_vector* r = gsl_vector_alloc(N_);
+    gsl_vector* tau = gsl_vector_alloc(K_);
+
+    for (int i = 0; i != N_; ++i) {
+        floating* zb = zbars.get() + K_*i;
+        std::copy(topic_count_[i], topic_count_[i] + K_, zb);
+        for (int k = 0; k != K_; ++k) zb[k] /= topic_sum_[i];
+    }
+
+    for (int ell = 0; ell < L_; ++ell) {
+        // The operation below might actually clobber zdata
+        std::copy(zbars.get(), zbars.get() + N_ * K_, zdata.get());
+        for (int i = 0; i != N_; ++i) {
+            const floating v = dot_product(gamma(ell), zbars.get() + (K_*i), K_);
+            y[i] = R.normal(v, 1.);
+        }
+
+        gammav.data = gamma(ell);
+
+        gsl_linalg_QR_decomp(&Z, tau);
+        gsl_linalg_QR_lssolve(&Z, tau, &b, &gammav, r);
+
+    }
+    gsl_vector_free(tau);
+    gsl_vector_free(r);
 }
 
 

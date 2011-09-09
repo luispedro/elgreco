@@ -69,6 +69,7 @@ struct lda_base {
             delete [] features_[0];
             delete [] features_;
             delete [] ls_;
+            delete [] gamma_;
         }
         virtual void step() = 0;
         virtual void forward() = 0;
@@ -110,6 +111,10 @@ struct lda_base {
         floating* ls(int i) { return ls_ + i*L_; }
         const floating* ls(int i) const { return ls_ + i*L_; }
 
+        floating* gamma_;
+        floating* gamma(int ell) {return gamma_ + ell*K_; }
+        const floating* gamma(int ell) const {return gamma_ + ell*K_; }
+
         floating alpha_;
         floating beta_;
 
@@ -140,7 +145,6 @@ struct lda_uncollapsed : lda_base {
             delete [] z_bars_;
 
             delete [] ys_;
-            delete [] gamma_;
         }
         virtual void step();
         virtual void forward();
@@ -190,9 +194,6 @@ struct lda_uncollapsed : lda_base {
         floating* ys(int i) { return ys_ + i*L_; }
         const floating* ys(int i) const { return ys_ + i*L_; }
 
-        floating* gamma_;
-        floating* gamma(int ell) {return gamma_ + ell*K_; }
-        const floating* gamma(int ell) const {return gamma_ + ell*K_; }
 };
 
 struct lda_collapsed : lda_base {
@@ -215,12 +216,27 @@ struct lda_collapsed : lda_base {
         void save_model(std::ostream&) const;
         void load_model(std::istream&);
     private:
+        void solve_gammas();
+
         int* z_;
         int** zi_;
+
         int* topic_;
         int** topic_count_;
         int* topic_sum_;
         int** topic_term_;
+        int** topic_numeric_count_;
+
+        int* size_;
+
+        floating* sum_f(int f) { return sum_f_ + f*K_; }
+        const floating* sum_f(int f) const { return sum_f_ + f*K_; }
+
+        floating* sum_f2(int f) { return sum_f2_ + f*K_; }
+        const floating* sum_f2(int f) const { return sum_f2_ + f*K_; }
+
+        floating* sum_f_;
+        floating* sum_f2_;
 };
 
 }
