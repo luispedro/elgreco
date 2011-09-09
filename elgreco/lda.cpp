@@ -373,7 +373,6 @@ void lda::lda_uncollapsed::step() {
         #pragma omp for
         for (int i = 0; i < N_; ++i) {
             floating Tp[K_];
-            floating* zb = z_bar(i);
             std::fill(Tp, Tp + K_, alpha_);
             floating p[K_];
             floating transfer[K_][K_];
@@ -433,6 +432,7 @@ void lda::lda_uncollapsed::step() {
             if (sample_[i]) {
                 dirichlet_sample(R2, thetas(i), Tp, K_);
             }
+            floating* zb = z_bar(i);
             std::copy(Tp, Tp + K_, zb);
             for (int k = 0; k != K_; ++k) {
                 zb[k] /= Ni;
@@ -498,43 +498,47 @@ void lda::lda_uncollapsed::step() {
             }
         }
         if (ls_) {
+            // sample gamma
+            double* const zdata = new double[N_ * K_];
+            gsl_matrix Z;
+            Z.size1 = N_;
+            Z.size2 = K_;
+            Z.tda = K_;
+            Z.data = zdata;
+            Z.block = 0;
+            Z.owner = 0;
+
+            gsl_vector b;
+            b.size = N_;
+            b.stride = L_;
+            b.data = 0;
+            b.block = 0;
+            b.owner = 0;
+
+            gsl_vector gammav;
+            gammav.size = K_;
+            gammav.stride = 1;
+            gammav.block = 0;
+            gammav.owner = 0;
+
+            gsl_vector* r = gsl_vector_alloc(N_);
+            gsl_vector* tau = gsl_vector_alloc(K_);
+
             #pragma omp for
             for (int ell = 0; ell < L_; ++ell) {
-                // sample gamma
-                double* zdata = new double[N_ * K_];
+                // The operation below might actually clobber zdata
                 std::copy(z_bars_, z_bars_ + N_ * K_, zdata);
-                gsl_matrix Z;
-                Z.size1 = N_;
-                Z.size2 = K_;
-                Z.tda = K_;
-                Z.data = zdata;
-                Z.block = 0;
-                Z.owner = 0;
 
-                gsl_vector b;
-                b.size = N_;
-                b.stride = L_;
                 b.data = ys_ + ell;
-                b.block = 0;
-                b.owner = 0;
-
-                gsl_vector gammav;
-                gammav.size = K_;
-                gammav.stride = 1;
                 gammav.data = gamma(ell);
-                gammav.block = 0;
-                gammav.owner = 0;
-
-                gsl_vector* r = gsl_vector_alloc(N_);
-                gsl_vector* tau = gsl_vector_alloc(K_);
 
                 gsl_linalg_QR_decomp(&Z, tau);
                 gsl_linalg_QR_lssolve(&Z, tau, &b, &gammav, r);
 
-                gsl_vector_free(tau);
-                gsl_vector_free(r);
-                delete [] zdata;
             }
+            gsl_vector_free(tau);
+            gsl_vector_free(r);
+            delete [] zdata;
         }
     }
 }
