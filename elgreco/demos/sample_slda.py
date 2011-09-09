@@ -1,5 +1,5 @@
 import numpy as np
-import lda
+from elgreco import lda
 
 def load_data(datafile):
     documents = []
@@ -14,14 +14,15 @@ def load_data(datafile):
         documents.append(words)
     return documents
 
-labels = [int(line.strip()) for line in file('train-label.dat')]
+labels = [int(line.strip()) for line in file('../train-label.dat')]
 
 data = lda.lda_data()
 labs = np.zeros(8, bool)
-for doc,lab in zip(load_data('train-data.dat'), labels):
+for doc,lab in zip(load_data('../train-data.dat'), labels):
     labs[:] = 0
     labs[lab] = 1
-    data.push_back_doc(doc, [], labs)
+    fs = [np.random.random() for f in xrange(4)]
+    data.push_back_doc(doc, fs, labs)
     
 params = lda.lda_parameters()
 params.alpha = .01
@@ -29,7 +30,7 @@ params.beta = .1
 params.nr_topics = 40
 params.nr_labels = 8
 params.seed = 2
-sampler = lda.lda_uncollapsed(data, params)
+sampler = lda.lda_collapsed(data, params)
 sampler.forward()
 
 logps = [sampler.logP()]
