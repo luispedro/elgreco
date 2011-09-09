@@ -316,6 +316,7 @@ lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
         for (int m = 1; m != N_; ++m) {
             topic_count_[m] = topic_count_[m-1]+K_;
         }
+
         topic_term_ = new int*[Nwords_];
         topic_term_[0] = new int[Nwords_*K_];
         for (int t = 1; t != Nwords_; ++t) {
@@ -328,7 +329,6 @@ lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
         for (int f = 1; f != F_; ++f) {
             topic_numeric_count_[f] = topic_numeric_count_[f-1] + K_;
         }
-        std::fill(topic_numeric_count_[0], topic_numeric_count_[0] + F_*K_, 0);
         sum_f_ = new floating[K_*F_];
         sum_f2_ = new floating[K_*F_];
     }
@@ -361,7 +361,6 @@ void lda::lda_collapsed::step() {
                                 (topic_[k] + beta_) *
                         (topic_count_[i][k] + alpha_)/
                                 (topic_sum_[i] + alpha_ - 1);
-                    if (false)
                     for (int ell = 0; ell != L_; ++ell) {
                         const floating delta = gamma(ell)[k] - gamma(ell)[ok];
                         const floating s = ls(i)[ell] ? +1 : -1;
@@ -380,7 +379,6 @@ void lda::lda_collapsed::step() {
                 ++topic_term_[*j][k];
             }
         }
-        if (false)
         for (int f = 0; f != F_; ++f) {
             const floating fv = features_[i][f];
             floating p[K_];
@@ -407,14 +405,14 @@ void lda::lda_collapsed::step() {
                     const floating delta = gamma(ell)[k] - gamma(ell)[ok];
                     const floating s = ls(i)[ell] ? +1 : -1;
                     const floating e = phi(s * (zb_gamma[ell]+delta));
-                    p[k] += std::log(e+0.01);
+                    p[k] += std::log(e);
                 }
                 assert(!std::isnan(p[k]));
             }
 
             const int k = categorical_sample_logps(R, p, K_);
             *z++ = k;
-            ++topic_count_[i][ok];
+            ++topic_count_[i][k];
             ++topic_numeric_count_[f][k];
             sf[k] += fv;
             sf2[k] += fv*fv;
@@ -656,11 +654,15 @@ void lda::lda_uncollapsed::forward() {
 
 void lda::lda_collapsed::forward() {
     std::fill(topic_, topic_ + K_, 0);
+    std::fill(topic_count_[0], topic_count_[0] + N_*K_, 0);
+    std::fill(topic_term_[0], topic_term_[0] + K_*Nwords_, 0);
+
+    std::fill(topic_sum_, topic_sum_ + N_, 0);
+    std::fill(topic_numeric_count_[0], topic_numeric_count_[0] + F_*K_, 0);
+
     std::fill(sum_f_, sum_f_ + K_*F_, 0.);
     std::fill(sum_f2_, sum_f2_ + K_*F_, 0.);
     int* z = z_;
-    floating vs[N_ * L_];
-    std::fill(vs, vs + N_ *L_, 0.);
     for (int i = 0; i != N_; ++i) {
         for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
             for (int cji = 0; cji != (*cj); ++cji) {
@@ -737,7 +739,6 @@ void lda::lda_collapsed::solve_gammas() {
 
         gsl_linalg_QR_decomp(&Z, tau);
         gsl_linalg_QR_lssolve(&Z, tau, &b, &gammav, r);
-
     }
     gsl_vector_free(tau);
     gsl_vector_free(r);
