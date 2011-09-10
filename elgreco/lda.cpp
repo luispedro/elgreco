@@ -419,6 +419,7 @@ void lda::lda_collapsed::step() {
         }
     }
     this->solve_gammas();
+    this->verify();
 }
 void lda::lda_uncollapsed::step() {
     random_source R2 = R;
@@ -630,6 +631,26 @@ void lda::lda_uncollapsed::step() {
     }
 }
 
+void lda::lda_collapsed::verify() const {
+    for (int i = 0; i != N_; ++i) {
+        assert(
+            std::accumulate(topic_count_[i], topic_count_[i] + K_, 0)
+             == topic_sum_[i]);
+    }
+    for (int k = 0; k != K_; ++k) {
+        int cdocs = 0;
+        for (int i = 0; i != N_; ++i) cdocs += topic_count_[i][k];
+
+        int wc = 0;
+        for (int j = 0; j != Nwords_; ++j) wc += topic_term_[j][k];
+
+        int fc = 0;
+        for (int f = 0; f != F_; ++f) fc += topic_numeric_count_[f][k];
+
+        assert( cdocs == (wc + fc) );
+    }
+}
+
 void lda::lda_uncollapsed::forward() {
     for (int i = 0; i != N_; ++i) {
         dirichlet_sample_uniform(R, thetas(i), alpha_, K_);
@@ -724,18 +745,22 @@ void lda::lda_collapsed::solve_gammas() {
     for (int i = 0; i != N_; ++i) {
         floating* zb = zbars.get() + K_*i;
         std::copy(topic_count_[i], topic_count_[i] + K_, zb);
+        assert(topic_sum_[i]);
         for (int k = 0; k != K_; ++k) zb[k] /= topic_sum_[i];
     }
 
     for (int ell = 0; ell < L_; ++ell) {
         // The operation below might actually clobber zdata
+        // Therefore, it needs to be copied afresh every time
+        floating* gl = gamma(ell);
         std::copy(zbars.get(), zbars.get() + N_ * K_, zdata.get());
         for (int i = 0; i != N_; ++i) {
-            const floating v = dot_product(gamma(ell), zbars.get() + (K_*i), K_);
+            const floating v = dot_product(gl, zbars.get() + (K_*i), K_);
             y[i] = R.normal(v, 1.);
+            assert(!std::isnan(y[i]));
         }
 
-        gammav.data = gamma(ell);
+        gammav.data = gl;
 
         gsl_linalg_QR_decomp(&Z, tau);
         gsl_linalg_QR_lssolve(&Z, tau, &b, &gammav, r);

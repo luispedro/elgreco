@@ -214,6 +214,8 @@ struct lda_collapsed : lda_base {
         void print_words(std::ostream&) const;
         void save_model(std::ostream&) const;
         void load_model(std::istream&);
+
+        void verify() const;
     private:
         void solve_gammas();
 
