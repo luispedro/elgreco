@@ -47,7 +47,8 @@ sampler.retrieve_gamma(0,G)
 T = np.zeros(40, np.float32)
 tests = []
 for doc in tdocuments:
-    _ = sampler.project_one(doc, T)
+    fs = [np.random.random() for f in xrange(4)]
+    _ = sampler.project_one(doc, fs, T)
     tests.append([sampler.score_one(ell,T) for ell in xrange(8)])
 
 
