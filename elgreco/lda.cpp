@@ -204,11 +204,8 @@ lda::lda_base::lda_base(lda_data& input, lda_parameters params)
             if (input.at(i).back() > Nwords_) Nwords_ = input.at(i).back();
             Nitems += input.size(i);
         }
-        counts_ = new int*[N_];
-        counts_[0] = new int[Nitems]; // this is actually an overestimate, but that's fine
-        counts_idx_ = new int*[N_];
-        counts_idx_[0] = new int[Nitems + N_];
-
+        words_ = new sparse_int*[N_];
+        words_[0] = new sparse_int[Nitems+N_]; // this is actually an overestimate, but that's fine
 
         features_ = new floating*[N_];
         features_[0] = new floating[N_*F_];
@@ -231,11 +228,9 @@ lda::lda_base::lda_base(lda_data& input, lda_parameters params)
         } else {
             ls_ = 0;
         }
-        int* j = counts_idx_[0];
-        int* cj = counts_[0];
+        sparse_int* j = words_[0];
         for (int i = 0; i != N_; ++i) {
-            counts_idx_[i] = j;
-            counts_[i] = cj;
+            words_[i] = j;
             int ci = 0;
             while (ci < input.size(i)) {
                 const int anchor = input(i, ci++);
@@ -244,10 +239,9 @@ lda::lda_base::lda_base(lda_data& input, lda_parameters params)
                     ++ci;
                     ++c;
                 }
-                *j++ = anchor;
-                *cj++ = c;
+                *j++ = sparse_int(anchor, c);
             }
-            *j++ = -1;
+            *j++ = sparse_int(-1, -1);
         }
         gamma_ = new floating[K_ * L_];
     }
@@ -302,8 +296,8 @@ lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
         int* zinext = z_;
         for (int i = 0; i != N_; ++i) {
             int c = 0;
-            for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
-                for (int cij = 0; cij != *cj; ++cij) {
+            for (const sparse_int* j = words_[i]; j->value != -1; ++j) {
+                for (int cji = 0; cji != j->count; ++cji) {
                     ++zinext;
                     ++c;
                 }
@@ -348,15 +342,15 @@ void lda::lda_collapsed::step() {
             zb_gamma[ell] = dot_product(z_bar, gamma(ell), K_);
         }
 
-        for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
-            for (int cij = 0; cij != *cj; ++cij) {
+        for (const sparse_int* j = words_[i]; j->value != -1; ++j) {
+            for (int cji = 0; cji != j->count; ++cji) {
                 floating p[K_];
                 const int ok = *z;
                 --topic_count_[i][ok];
                 --topic_[ok];
-                --topic_term_[*j][ok];
+                --topic_term_[j->value][ok];
                 for (int k = 0; k != K_; ++k) {
-                    p[k] = (topic_term_[*j][k] + beta_)/
+                    p[k] = (topic_term_[j->value][k] + beta_)/
                                 (topic_[k] + beta_) *
                         (topic_count_[i][k] + alpha_)/
                                 (size_[i] + alpha_ - 1);
@@ -374,7 +368,7 @@ void lda::lda_collapsed::step() {
                 *z++ = k;
                 ++topic_count_[i][k];
                 ++topic_[k];
-                ++topic_term_[*j][k];
+                ++topic_term_[j->value][k];
                 for (int ell = 0; ell != L_; ++ell) {
                     const floating* gl = gamma(ell);
                     zb_gamma[ell] -= gl[ok]/Ni;
@@ -505,9 +499,9 @@ void lda::lda_uncollapsed::step() {
                 std::copy(thetas(i), thetas(i+1), transfer[0]);
             }
 
-            for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
-                floating* crossed_j = crossed + (*j)*K_;
-                for (int cji = 0; cji != (*cj); ++cji) {
+            for (const sparse_int* j = words_[i]; j->value != -1; ++j) {
+                floating* crossed_j = crossed + (j->value)*K_;
+                for (int cji = 0; cji != j->count; ++cji) {
                     const int cur = (ls_ ? zs_[i][wj] : 0);
                     assert (cur < K_);
                     for (int k = 0; k != K_; ++k) {
@@ -515,9 +509,9 @@ void lda::lda_uncollapsed::step() {
                     }
                     const int z  = categorical_sample(R2, p, K_);
                     if (ls_) zs_[i][wj++] = z;
-                    assert(*j < Nwords_);
+                    assert(j->value < Nwords_);
                     assert(z < K_);
-                    ++priv_proposal[z*Nwords_ + *j];
+                    ++priv_proposal[z*Nwords_ + j->value];
                     ++Tp[z];
                 }
             }
@@ -703,12 +697,12 @@ void lda::lda_collapsed::forward() {
     std::fill(sum_f2_, sum_f2_ + K_*F_, 0.);
     int* z = z_;
     for (int i = 0; i != N_; ++i) {
-        for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
-            for (int cji = 0; cji != (*cj); ++cji) {
+        for (const sparse_int* j = words_[i]; j->value != -1; ++j) {
+            for (int cji = 0; cji != j->count; ++cji) {
                 const int k = R.random_int(0, K_);
                 *z++ = k;
                 ++topic_count_[i][k];
-                ++topic_term_[*j][k];
+                ++topic_term_[j->value][k];
                 ++topic_[k];
             }
         }
@@ -799,13 +793,13 @@ floating lda::lda_uncollapsed::logP(bool normalise) const {
             // we use an intermediate variable (local_p) to avoid adding really
             // small numbers to a larger number
             floating local_p = 0;
-            for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
+            for (const sparse_int* j = words_[i]; j->value != -1; ++j) {
                 floating sum_k = 0.;
-                floating* crossed_j = crossed + (*j)*K_;
+                floating* crossed_j = crossed + (j->value)*K_;
                 for (int k = 0; k != K_; ++k) {
                     sum_k += Ti[k] * crossed_j[k];
                 }
-                local_p += (*cj) * (std::log(sum_k) + offset[*j]);
+                local_p += j->value * (std::log(sum_k) + offset[j->value]);
             }
             p += local_p;
             if (normalise) {
@@ -869,9 +863,9 @@ void lda::lda_collapsed::print_words(std::ostream& out) const {
         std::fill(multinomials, multinomials + Nwords_, beta_);
         const int* z = z_;
         for (int i = 0; i != N_; ++i) {
-            for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
-                for (int cji = 0; cji != (*cj); ++cji) {
-                    if (*z++ == k) ++multinomials[*j];
+            for (const sparse_int* j = words_[i]; j->value != -1; ++j) {
+                for (int cji = 0; cji != j->count; ++cji) {
+                    if (*z++ == k) ++multinomials[j->value];
                 }
             }
         }
@@ -888,8 +882,8 @@ void lda::lda_collapsed::print_topics(std::ostream& out) const {
     const int* z = z_;
     for (int i = 0; i != N_; ++i) {
         std::fill(thetas, thetas + K_, alpha_);
-        for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
-            for (int cji = 0; cji != (*cj); ++cji) {
+        for (const sparse_int* j = words_[i]; j->count != -1; ++j) {
+            for (int cji = 0; cji != j->count; ++cji) {
                 ++thetas[*z++];
             }
         }
@@ -929,9 +923,9 @@ void lda::lda_uncollapsed::save_model(std::ostream& out) const {
     }
     out << endl;
     for (int i = 0; i != N_; ++i) {
-        for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
-            for (int cji = 0; cji != (*cj); ++cji) {
-                out << *j << '\t';
+        for (const sparse_int* j = words_[i]; j->count != -1; ++j) {
+            for (int cji = 0; cji != j->count; ++cji) {
+                out << j->value << '\t';
             }
         }
         out << endl;
@@ -999,12 +993,12 @@ void lda::lda_uncollapsed::load_model(std::istream& in) {
     }
 
     for (int i = 0; i != N_; ++i) {
-        for (const int* j = counts_idx_[i], *cj = counts_[i]; *j != -1; ++j, ++cj) {
-            for (int cji = 0; cji != (*cj); ++cji) {
+        for (const sparse_int* j = words_[i]; j->count != -1; ++j) {
+            for (int cji = 0; cji != j->count; ++cji) {
                 int t;
                 in >> t;
-                if (t != *j) {
-                    throw "*j was expected\n";
+                if (t != j->value) {
+                    throw "j->value was expected\n";
                 }
             }
         }

@@ -61,10 +61,8 @@ struct lda_base {
     public:
         lda_base(lda_data& data, lda_parameters params);
         virtual ~lda_base() {
-            delete [] counts_[0];
-            delete [] counts_;
-            delete [] counts_idx_[0];
-            delete [] counts_idx_;
+            delete [] words_[0];
+            delete [] words_;
             delete [] features_[0];
             delete [] features_;
             delete [] ls_;
@@ -104,9 +102,19 @@ struct lda_base {
         int L_;
         int Nwords_;
 
-        int** counts_;
-        int* counts_data_;
-        int** counts_idx_;
+        struct sparse_int {
+            int value;
+            int count;
+            sparse_int()
+                :value(-2)
+                ,count(-2)
+                { }
+            sparse_int(int v, int c)
+                :value(v)
+                ,count(c)
+                { }
+        };
+        sparse_int** words_;
 
         floating** features_;
 
