@@ -358,10 +358,8 @@ void lda::lda_collapsed::step() {
                         p[k] *= phi(s * (zb_gamma[ell]+delta/Ni));
                     }
                     assert(!std::isnan(p[k]));
-                    if (k > 0) p[k] += p[k-1];
                 }
-                for (int k = 0; k != K_; ++k) p[k] /= p[K_-1];
-                const int k = categorical_sample_cps(R, p, K_);
+                const int k = categorical_sample(R, p, K_);
 
                 *z++ = k;
                 ++topic_count_[i][k];
