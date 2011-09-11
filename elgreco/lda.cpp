@@ -329,7 +329,7 @@ lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
 
 void lda::lda_collapsed::step() {
     int* z = z_;
-    floating* zb_gamma = new floating[L_];
+    floating zb_gamma[L_];
     for (int i = 0; i != N_; ++i) {
         floating z_bar[K_];
         std::fill(z_bar, z_bar + K_, 0);
