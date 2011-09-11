@@ -815,21 +815,36 @@ floating lda::lda_uncollapsed::logP(bool normalise) const {
 floating lda::lda_collapsed::logP(bool normalise) const {
     floating logp = 0;
     if (normalise) {
+        throw "not implemented.";
         logp += N_ * ( gsl_sf_lngamma(K_ * alpha_) - K_* gsl_sf_lngamma(alpha_));
     }
     #pragma omp parallel for reduction(+:logp)
     for (int i = 0; i < N_; ++i) {
-        floating counts[K_];
-        int count = 0;
-        std::fill(counts, counts + K_, 0);
-        for (const int* zi = zi_[i]; zi != zi_[i+1]; ++zi) {
-            ++counts[*zi];
-            ++count;
-        }
         for (int k = 0; k != K_; ++k) {
-            logp += gsl_sf_lngamma(counts[k] + alpha_);
+            logp += gsl_sf_lngamma(topic_count_[i][k] + alpha_);
         }
-        logp -= gsl_sf_lngamma(count + K_*alpha_);
+    }
+    #pragma omp parallel for reduction(+:logp)
+    for (int j = 0; j < Nwords_; ++j) {
+        for (int k = 0; k != K_; ++k) {
+            logp += gsl_sf_lngamma(topic_term_[j][k] + beta_);
+        }
+    }
+    #pragma omp parallel for reduction(+:logp)
+    for (int f = 0; f < F_; ++f) {
+        const floating* sf = sum_f(f);
+        const floating* sf2 = sum_f2(f);
+
+        for (int k = 0; k != K_; ++k) {
+            const floating n = topic_numeric_count_[f][k];
+            const floating n_prime = Gn0_ + n;
+            const floating f_bar = (n ? sf[k]/n : 0);
+            const floating f2_bar = (n ? sf2[k]/n : 0.);
+            const floating a_prime = Ga_ + n/2.;
+            const floating b_prime = Gb_ + n/2.* (f2_bar- f_bar*f_bar) + .5*n*Gn0_*(f_bar - Gmu_)*(f_bar - Gmu_)/n_prime;
+            logp += gsl_sf_lngamma(a_prime)+a_prime * log(b_prime);
+            logp += 1./2.*log(n_prime);
+        }
     }
     return logp;
 }
@@ -1181,7 +1196,7 @@ int lda::lda_collapsed::project_one(const std::vector<int>& words, const std::ve
         }
     }
     for (int k = 0; k != K_; ++k) res[k] = floating(counts[k])/zs.size();
-    assert(std::accumulate(counts, counts + K_, 0) == zs.size());
+    assert(std::accumulate(counts, counts + K_, 0) == int(zs.size()));
     return size;
 }
 
