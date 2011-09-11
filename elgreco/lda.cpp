@@ -340,7 +340,7 @@ void lda::lda_collapsed::step() {
     for (int i = 0; i != N_; ++i) {
         floating z_bar[K_];
         std::fill(z_bar, z_bar + K_, 0);
-        const int Ni = size_[i] + F_;
+        const int Ni = size_[i];
         for (int d = 0; d != Ni; ++d) {
             ++z_bar[z[d]];
         }
