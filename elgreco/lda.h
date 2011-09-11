@@ -205,7 +205,6 @@ struct lda_collapsed : lda_base {
             delete [] zi_;
             delete [] topic_;
             delete [] topic_count_;
-            delete [] topic_sum_;
             delete [] topic_term_;
         }
         virtual void step();
@@ -227,7 +226,6 @@ struct lda_collapsed : lda_base {
 
         int* topic_;
         int** topic_count_;
-        int* topic_sum_;
         int** topic_term_;
         int** topic_numeric_count_;
 

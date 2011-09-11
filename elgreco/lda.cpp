@@ -323,7 +323,6 @@ lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
         for (int t = 1; t != Nwords_; ++t) {
             topic_term_[t] = topic_term_[t-1] + K_;
         }
-        topic_sum_ = new int[N_];
 
         topic_numeric_count_ = new int*[F_];
         topic_numeric_count_[0] = new int[F_*K_];
@@ -354,14 +353,13 @@ void lda::lda_collapsed::step() {
                 floating p[K_];
                 const int ok = *z;
                 --topic_count_[i][ok];
-                --topic_sum_[i];
                 --topic_[ok];
                 --topic_term_[*j][ok];
                 for (int k = 0; k != K_; ++k) {
                     p[k] = (topic_term_[*j][k] + beta_)/
                                 (topic_[k] + beta_) *
                         (topic_count_[i][k] + alpha_)/
-                                (topic_sum_[i] + alpha_ - 1);
+                                (size_[i] + alpha_ - 1);
                     for (int ell = 0; ell != L_; ++ell) {
                         const floating delta = gamma(ell)[k] - gamma(ell)[ok];
                         const floating s = ls(i)[ell] ? +1 : -1;
@@ -375,9 +373,13 @@ void lda::lda_collapsed::step() {
 
                 *z++ = k;
                 ++topic_count_[i][k];
-                ++topic_sum_[i];
                 ++topic_[k];
                 ++topic_term_[*j][k];
+                for (int ell = 0; ell != L_; ++ell) {
+                    const floating* gl = gamma(ell);
+                    zb_gamma[ell] -= gl[ok]/Ni;
+                    zb_gamma[ell] += gl[k]/Ni;
+                }
             }
         }
         for (int f = 0; f != F_; ++f) {
@@ -406,9 +408,10 @@ void lda::lda_collapsed::step() {
                 const floating b_prime_k = Gb_ + n_k/2.* (f2_bar_k- f_bar_k*f_bar_k) + .5*n_k*Gn0_*(f_bar_k - Gmu_)*(f_bar_k - Gmu_)/n_prime_k;
                 assert(b_prime > 0);
                 assert(a_prime > 0);
-                p[k] = log(topic_count_[i][k] + alpha_)+gsl_sf_lngamma(a_prime)+a_prime * log(b_prime);
+                p[k] = log(topic_count_[i][k] + alpha_);
                 p[k] += 1./2.*log(n_prime/n_prime_k);
-                p[k] -= gsl_sf_lngamma(a_prime_k)+a_prime_k * log(b_prime_k);
+                p[k] += gsl_sf_lngamma(a_prime)   + a_prime   * log(b_prime);
+                p[k] -= gsl_sf_lngamma(a_prime_k) + a_prime_k * log(b_prime_k);
                 assert(!std::isnan(p[k]));
                 for (int ell = 0; ell != L_; ++ell) {
                     const floating delta = gamma(ell)[k] - gamma(ell)[ok];
@@ -425,9 +428,16 @@ void lda::lda_collapsed::step() {
             ++topic_numeric_count_[f][k];
             sf[k] += fv;
             sf2[k] += fv*fv;
+            for (int ell = 0; ell != L_; ++ell) {
+                const floating* gl = gamma(ell);
+                zb_gamma[ell] -= gl[ok]/Ni;
+                zb_gamma[ell] += gl[k]/Ni;
+            }
         }
     }
-    this->solve_gammas();
+    for (int g = 0; g != 4; ++g) {
+        this->solve_gammas();
+    }
     this->verify();
 }
 void lda::lda_uncollapsed::step() {
@@ -644,7 +654,7 @@ void lda::lda_collapsed::verify() const {
     for (int i = 0; i != N_; ++i) {
         assert(
             std::accumulate(topic_count_[i], topic_count_[i] + K_, 0)
-             == topic_sum_[i]);
+             == size_[i]);
     }
     for (int k = 0; k != K_; ++k) {
         int cdocs = 0;
@@ -687,7 +697,6 @@ void lda::lda_collapsed::forward() {
     std::fill(topic_count_[0], topic_count_[0] + N_*K_, 0);
     std::fill(topic_term_[0], topic_term_[0] + K_*Nwords_, 0);
 
-    std::fill(topic_sum_, topic_sum_ + N_, 0);
     std::fill(topic_numeric_count_[0], topic_numeric_count_[0] + F_*K_, 0);
 
     std::fill(sum_f_, sum_f_ + K_*F_, 0.);
@@ -699,7 +708,6 @@ void lda::lda_collapsed::forward() {
                 const int k = R.random_int(0, K_);
                 *z++ = k;
                 ++topic_count_[i][k];
-                ++topic_sum_[i];
                 ++topic_term_[*j][k];
                 ++topic_[k];
             }
@@ -712,7 +720,6 @@ void lda::lda_collapsed::forward() {
             *z++ = k;
             ++topic_numeric_count_[f][k];
             ++topic_count_[i][k];
-            ++topic_sum_[i];
             ++topic_[k];
             sf[k] += fv;
             sf2[k] += fv*fv;
@@ -753,7 +760,7 @@ void lda::lda_collapsed::solve_gammas() {
     for (int i = 0; i != N_; ++i) {
         floating* zb = zbars.get() + K_*i;
         for (int k = 0; k != K_; ++k) {
-            zb[k] = (topic_count_[i][k] + alpha_)/(topic_sum_[i] + K_*alpha_);
+            zb[k] = (topic_count_[i][k] + alpha_)/(size_[i] + K_*alpha_);
         }
     }
 
