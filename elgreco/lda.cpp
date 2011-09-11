@@ -733,26 +733,8 @@ void lda::lda_collapsed::solve_gammas() {
     using boost::scoped_array;
     scoped_array<double> zbars(new double[N_ * K_]);
     scoped_array<double> y(new double[N_]);
-    gsl_matrix Z;
-    Z.size1 = N_;
-    Z.size2 = K_;
-    Z.tda = K_;
-    Z.data = zbars.get();
-    Z.block = 0;
-    Z.owner = 0;
-
-    gsl_vector b;
-    b.size = N_;
-    b.stride = 1;
-    b.data = y.get();
-    b.block = 0;
-    b.owner = 0;
-
-    gsl_vector gammav;
-    gammav.size = K_;
-    gammav.stride = 1;
-    gammav.block = 0;
-    gammav.owner = 0;
+    gsl_matrix_view Z = gsl_matrix_view_array(zbars.get(), N_, K_);
+    gsl_vector_view b = gsl_vector_view_array(y.get(), N_);
 
     gsl_vector* r = gsl_vector_alloc(N_);
     gsl_vector* tau = gsl_vector_alloc(K_);
@@ -764,7 +746,7 @@ void lda::lda_collapsed::solve_gammas() {
         }
     }
 
-    gsl_linalg_QR_decomp(&Z, tau);
+    gsl_linalg_QR_decomp(&Z.matrix, tau);
     for (int ell = 0; ell < L_; ++ell) {
         floating* gl = gamma(ell);
         for (int i = 0; i != N_; ++i) {
@@ -780,10 +762,8 @@ void lda::lda_collapsed::solve_gammas() {
             y[i] = (li[ell] ? mu : -mu);
         }
 
-        gammav.data = gl;
-        gsl_linalg_QR_lssolve(&Z, tau, &b, &gammav, r);
-
-        assert(!std::isnan(gammav.data[0]));
+        gsl_vector_view gammav = gsl_vector_view_array(gl, K_);
+        gsl_linalg_QR_lssolve(&Z.matrix, tau, &b.vector, &gammav.vector, r);
     }
     gsl_vector_free(tau);
     gsl_vector_free(r);
