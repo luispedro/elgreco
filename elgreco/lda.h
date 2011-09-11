@@ -92,6 +92,8 @@ struct lda_base {
         int nr_topics() const { return K_; }
         int nr_labels() const { return L_; }
 
+        int retrieve_gamma(int ell, float* res, int size) const;
+
     protected:
         random_source R;
         int K_;
@@ -152,7 +154,6 @@ struct lda_uncollapsed : lda_base {
 
         int retrieve_logbeta(int k, float* res, int size) const;
         int retrieve_theta(int i, float* res, int size) const;
-        int retrieve_gamma(int ell, float* res, int size) const;
         int retrieve_ys(int i, float* res, int size) const;
         int retrieve_z_bar(int i, float* res, int size) const;
 
