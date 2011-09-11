@@ -718,7 +718,7 @@ void lda::lda_collapsed::forward() {
             sf2[k] += fv*fv;
         }
     }
-    this->solve_gammas();
+    std::fill(gamma_, gamma_ + K_ *L_, 0.);
 }
 
 void lda::lda_collapsed::solve_gammas() {
