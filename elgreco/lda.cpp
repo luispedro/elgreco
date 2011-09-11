@@ -1159,6 +1159,7 @@ int lda::lda_collapsed::project_one(const std::vector<int>& words, const std::ve
                         (counts[k] + alpha_)/(zs.size() + alpha_ - 1);
                     if (k > 0) p[k] += p[k-1];
                 }
+                for (int k = 0; k != K_; ++k) p[k] /= p[K_-1];
             } else {
                 sample_function = categorical_sample_logps;
                 for (int k = 0; k != K_; ++k) {
