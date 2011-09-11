@@ -364,7 +364,7 @@ void lda::lda_collapsed::step() {
                     for (int ell = 0; ell != L_; ++ell) {
                         const floating delta = gamma(ell)[k] - gamma(ell)[ok];
                         const floating s = ls(i)[ell] ? +1 : -1;
-                        p[k] *= phi(s * (zb_gamma[ell]+delta));
+                        p[k] *= phi(s * (zb_gamma[ell]+delta/Ni));
                     }
                     assert(!std::isnan(p[k]));
                     if (k > 0) p[k] += p[k-1];
@@ -404,7 +404,7 @@ void lda::lda_collapsed::step() {
                 for (int ell = 0; ell != L_; ++ell) {
                     const floating delta = gamma(ell)[k] - gamma(ell)[ok];
                     const floating s = ls(i)[ell] ? +1 : -1;
-                    const floating e = phi(s * (zb_gamma[ell]+delta));
+                    const floating e = phi(s * (zb_gamma[ell]+delta/Ni));
                     p[k] += std::log(e);
                 }
                 assert(!std::isnan(p[k]));
