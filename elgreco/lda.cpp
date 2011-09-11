@@ -745,13 +745,12 @@ void lda::lda_collapsed::solve_gammas() {
         for (int i = 0; i != N_; ++i) {
             const floating* li = ls(i);
             const floating p2 = 8./9.;
-            const floating p2i = 9./8.;
 
             floating mu = dot_product(gl, zbars.get() + (K_*i), K_);
             mu *= p2;
             if (!li[ell]) mu = -mu;
             floating s = left_truncated_normal(R, -mu);
-            mu += s*std::sqrt(p2i);
+            mu += s*std::sqrt(p2);
             y[i] = (li[ell] ? mu : -mu);
         }
 
