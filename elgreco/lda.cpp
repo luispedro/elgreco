@@ -406,8 +406,9 @@ void lda::lda_collapsed::step() {
                 const floating b_prime_k = Gb_ + n_k/2.* (f2_bar_k- f_bar_k*f_bar_k) + .5*n_k*Gn0_*(f_bar_k - Gmu_)*(f_bar_k - Gmu_)/n_prime_k;
                 assert(b_prime > 0);
                 assert(a_prime > 0);
-                p[k] = log(topic_count_[i][k] + alpha_)+gsl_sf_lngamma(a_prime)+a_prime * log(b_prime) + log(n_prime)/2.;
-                p[k] -= gsl_sf_lngamma(a_prime_k)+a_prime_k * log(b_prime_k) + log(n_prime_k)/2;
+                p[k] = log(topic_count_[i][k] + alpha_)+gsl_sf_lngamma(a_prime)+a_prime * log(b_prime);
+                p[k] += 1./2.*log(n_prime/n_prime_k);
+                p[k] -= gsl_sf_lngamma(a_prime_k)+a_prime_k * log(b_prime_k);
                 assert(!std::isnan(p[k]));
                 for (int ell = 0; ell != L_; ++ell) {
                     const floating delta = gamma(ell)[k] - gamma(ell)[ok];
@@ -1178,8 +1179,9 @@ int lda::lda_collapsed::project_one(const std::vector<int>& words, const std::ve
                     const floating b_prime_k = Gb_ + n_k/2.* (f2_bar_k- f_bar_k*f_bar_k) + .5*n_k*Gn0_*(f_bar_k - Gmu_)*(f_bar_k - Gmu_)/n_prime_k;
                     assert(b_prime > 0);
                     assert(a_prime > 0);
-                    p[k] = log(counts[k] + alpha_)+gsl_sf_lngamma(a_prime)+a_prime * log(b_prime) + log(n_prime)/2.;
-                    p[k] -= gsl_sf_lngamma(a_prime_k)+a_prime_k * log(b_prime_k) + log(n_prime_k)/2;
+                    p[k] = log(counts[k] + alpha_)+gsl_sf_lngamma(a_prime)+a_prime * log(b_prime);
+                    p[k] += 1./2.*log(n_prime/n_prime_k);
+                    p[k] -= gsl_sf_lngamma(a_prime_k)+a_prime_k * log(b_prime_k);
                 }
             }
             const int k = sample_function(R, p, K_);
