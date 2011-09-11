@@ -1129,6 +1129,9 @@ int lda::lda_uncollapsed::project_one(const std::vector<int>& words, const std::
 
 int lda::lda_collapsed::project_one(const std::vector<int>& words, const std::vector<float>& fs, float* res, int size) {
     if (size != K_) return 0;
+    if (int(fs.size()) != F_) return -1;
+    if ((*std::max_element(words.begin(), words.end()) >= Nwords_) ||
+        (*std::min_element(words.begin(), words.end()) < 0)) return -2;
     floating thetas[K_];
     std::fill(thetas, thetas, alpha_);
     std::vector<int> zs;
@@ -1185,11 +1188,13 @@ int lda::lda_collapsed::project_one(const std::vector<int>& words, const std::ve
                 }
             }
             const int k = sample_function(R, p, K_);
+            assert(k < K_);
             zs[zi] = k;
             ++counts[k];
         }
     }
-    for (int k = 0; k != K_; ++k) res[k] = counts[k]/zs.size();
+    for (int k = 0; k != K_; ++k) res[k] = floating(counts[k])/zs.size();
+    assert(std::accumulate(counts, counts + K_, 0) == zs.size());
     return size;
 }
 
