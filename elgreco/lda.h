@@ -89,10 +89,12 @@ struct lda_base {
             load_model(in);
         }
 
+        virtual int project_one(const std::vector<int>&, const std::vector<float>&, float* res, int size) = 0;
         int nr_topics() const { return K_; }
         int nr_labels() const { return L_; }
 
         int retrieve_gamma(int ell, float* res, int size) const;
+        float score_one(int ell, const float* array, int size) const;
 
     protected:
         random_source R;
@@ -161,7 +163,6 @@ struct lda_uncollapsed : lda_base {
         int set_theta(int i, float* res, int size);
 
         int project_one(const std::vector<int>&, const std::vector<float>&, float* res, int size);
-        float score_one(int ell, const float* array, int size) const;
         void nosample(int i) { sample_[i] = false; }
         void sample(int i) { sample_[i] = true; }
 
@@ -211,6 +212,7 @@ struct lda_collapsed : lda_base {
         virtual void forward();
         virtual floating logP(bool normalise=false) const;
 
+        int project_one(const std::vector<int>&, const std::vector<float>&, float* res, int size);
         void print_topics(std::ostream&) const;
         void print_words(std::ostream&) const;
         void save_model(std::ostream&) const;

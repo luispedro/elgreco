@@ -1126,7 +1126,72 @@ int lda::lda_uncollapsed::project_one(const std::vector<int>& words, const std::
     return size;
 }
 
-float lda::lda_uncollapsed::score_one(int ell, const float* res, int size) const {
+int lda::lda_collapsed::project_one(const std::vector<int>& words, const std::vector<float>& fs, float* res, int size) {
+    if (size != K_) return 0;
+    floating thetas[K_];
+    std::fill(thetas, thetas, alpha_);
+    std::vector<int> zs;
+    zs.reserve(words.size() + fs.size());
+    int counts[K_];
+    std::fill(counts, counts + K_, 0);
+    for (unsigned zi = 0; zi != (words.size() + fs.size()); ++zi) {
+        const int z = R.random_int(0,K_);
+        zs.push_back(z);
+        ++counts[z];
+    }
+    for (int it = 0; it != 30; ++it) {
+        for (unsigned zi = 0; zi != zs.size(); ++zi) {
+            const int ok = zs[zi];
+            --counts[ok];
+
+            floating p[K_];
+            int (*sample_function)(random_source&, const floating*, int);
+            if (zi < words.size()) {
+                sample_function = categorical_sample_cps;
+                for (int k = 0; k != K_; ++k) {
+                    const int w = words[zi];
+                    p[k] = (topic_term_[w][k] + beta_)/
+                                (topic_[k] + beta_) *
+                        (counts[k] + alpha_)/(zs.size() + alpha_ - 1);
+                    if (k > 0) p[k] += p[k-1];
+                }
+            } else {
+                sample_function = categorical_sample_logps;
+                for (int k = 0; k != K_; ++k) {
+                    const int f = zi-words.size();
+                    const floating fv = fs[f];
+                    const floating* sf = sum_f(f);
+                    const floating* sf2 = sum_f2(f);
+
+                    const floating n = topic_numeric_count_[f][k];
+                    const floating n_prime = Gn0_ + n;
+                    const floating f_bar = (n ? sf[k]/n : 0);
+                    const floating f2_bar = (n ? sf2[k]/n : 0.);
+                    const floating a_prime = Ga_ + n/2.;
+                    const floating b_prime = Gb_ + n/2.* (f2_bar- f_bar*f_bar) + .5*n*Gn0_*(f_bar - Gmu_)*(f_bar - Gmu_)/n_prime;
+
+                    const floating n_k = 1+n;
+                    const floating n_prime_k = n_prime + 1;
+                    const floating f_bar_k = (sf[k] + fv)/n_k;
+                    const floating f2_bar_k = (sf2[k] + fv*fv)/n_k;
+                    const floating a_prime_k = Ga_ + n_k/2.;
+                    const floating b_prime_k = Gb_ + n_k/2.* (f2_bar_k- f_bar_k*f_bar_k) + .5*n_k*Gn0_*(f_bar_k - Gmu_)*(f_bar_k - Gmu_)/n_prime_k;
+                    assert(b_prime > 0);
+                    assert(a_prime > 0);
+                    p[k] = log(counts[k] + alpha_)+gsl_sf_lngamma(a_prime)+a_prime * log(b_prime) + log(n_prime)/2.;
+                    p[k] -= gsl_sf_lngamma(a_prime_k)+a_prime_k * log(b_prime_k) + log(n_prime_k)/2;
+                }
+            }
+            const int k = sample_function(R, p, K_);
+            zs[zi] = k;
+            ++counts[k];
+        }
+    }
+    for (int k = 0; k != K_; ++k) res[k] = counts[k]/zs.size();
+    return size;
+}
+
+float lda::lda_base::score_one(int ell, const float* res, int size) const {
     if (ell >= L_) return -1;
     if (size != K_) return 0;
     return dot_product(res, gamma(ell), size);
