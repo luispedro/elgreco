@@ -237,7 +237,7 @@ struct lda_collapsed : lda_base {
         int** topic_term_;
         int** topic_numeric_count_;
 
-        int* size_;
+        int size(int i) const { assert(i < N_); return zi_[i+1]-zi_[i]; }
 
         floating* sum_f(int f) { assert(f < F_); return sum_f_ + f*K_; }
         const floating* sum_f(int f) const { assert(f < F_); return sum_f_ + f*K_; }

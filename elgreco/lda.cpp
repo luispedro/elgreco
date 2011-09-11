@@ -291,7 +291,6 @@ lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
     :lda_base(words, params) {
         z_ = new int[words.nr_words() + N_*F_];
         zi_ = new int*[N_+1];
-        size_ = new int[N_];
         zi_[0] = z_;
         int* zinext = z_;
         for (int i = 0; i != N_; ++i) {
@@ -302,7 +301,6 @@ lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
                     ++c;
                 }
             }
-            size_[i] = (c + F_);
             zi_[i+1] = zinext;
         }
         topic_ = new int[K_];
@@ -333,7 +331,7 @@ void lda::lda_collapsed::step() {
     for (int i = 0; i != N_; ++i) {
         floating z_bar[K_];
         std::fill(z_bar, z_bar + K_, 0);
-        const int Ni = size_[i];
+        const int Ni = size(i);
         for (int d = 0; d != Ni; ++d) {
             ++z_bar[z[d]];
         }
@@ -353,7 +351,7 @@ void lda::lda_collapsed::step() {
                     p[k] = (topic_term_[j->value][k] + beta_)/
                                 (topic_[k] + beta_) *
                         (topic_count_[i][k] + alpha_)/
-                                (size_[i] + alpha_ - 1);
+                                (size(i) + alpha_ - 1);
                     for (int ell = 0; ell != L_; ++ell) {
                         const floating delta = gamma(ell)[k] - gamma(ell)[ok];
                         const floating s = ls(i)[ell] ? +1 : -1;
@@ -648,7 +646,7 @@ void lda::lda_collapsed::verify() const {
     for (int i = 0; i != N_; ++i) {
         assert(
             std::accumulate(topic_count_[i], topic_count_[i] + K_, 0)
-             == size_[i]);
+             == size(i));
     }
     for (int k = 0; k != K_; ++k) {
         int cdocs = 0;
@@ -736,7 +734,7 @@ void lda::lda_collapsed::solve_gammas() {
     for (int i = 0; i != N_; ++i) {
         floating* zb = zbars.get() + K_*i;
         for (int k = 0; k != K_; ++k) {
-            zb[k] = (topic_count_[i][k] + alpha_)/(size_[i] + K_*alpha_);
+            zb[k] = (topic_count_[i][k] + alpha_)/(size(i) + K_*alpha_);
         }
     }
 
