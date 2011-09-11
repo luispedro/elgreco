@@ -214,8 +214,8 @@ struct lda_collapsed : lda_base {
             delete [] topic_;
             delete [] topic_count_[0];
             delete [] topic_count_;
-            delete [] topic_term_;
             delete [] topic_term_[0];
+            delete [] topic_term_;
             delete [] topic_numeric_count_[0];
             delete [] topic_numeric_count_;
             delete [] sum_f_;
