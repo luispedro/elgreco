@@ -327,7 +327,7 @@ lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
 
         topic_numeric_count_ = new int*[F_];
         topic_numeric_count_[0] = new int[F_*K_];
-        for (int f = 1; f != F_; ++f) {
+        for (int f = 1; f < F_; ++f) {
             topic_numeric_count_[f] = topic_numeric_count_[f-1] + K_;
         }
         sum_f_ = new floating[K_*F_];
