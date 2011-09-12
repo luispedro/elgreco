@@ -304,6 +304,7 @@ lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
                     ++c;
                 }
             }
+            zinext += F_;
             zi_[i+1] = zinext;
         }
         topic_ = new int[K_];
