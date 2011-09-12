@@ -1134,8 +1134,6 @@ int lda::lda_collapsed::project_one(const std::vector<int>& words, const std::ve
     if (int(fs.size()) != F_) return -1;
     if ((*std::max_element(words.begin(), words.end()) >= Nwords_) ||
         (*std::min_element(words.begin(), words.end()) < 0)) return -2;
-    floating thetas[K_];
-    std::fill(thetas, thetas, alpha_);
     std::vector<int> zs;
     zs.reserve(words.size() + fs.size());
     int counts[K_];
