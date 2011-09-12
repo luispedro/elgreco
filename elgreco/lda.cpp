@@ -157,6 +157,7 @@ floating dot_product(const F1* x, const F2* y, const int dim) {
     return res;
 }
 
+
 floating phi(const double x) {
     /* The table was generated from the following programme:
      *
@@ -172,9 +173,9 @@ floating phi(const double x) {
     assert(sizeof(table) == 256*sizeof(table[0]));
     assert(!std::isnan(x));
 
-    if (x < 0) return 1.-phi(-x);
-    if (x >= 2.) return table[255];
-    const int idx = int(x * 128.);
+    if (x < 0.) return 1.-phi(-x);
+    if (x >= (2.0 - 2./128.)) return table[255];
+    const int idx = lrint(x * 128.);
     assert((idx >= 0) && (idx < 256));
     return table[idx];
 }
