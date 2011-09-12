@@ -292,10 +292,9 @@ lda::lda_uncollapsed::lda_uncollapsed(lda_data& words, lda_parameters params)
 
 lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
     :lda_base(words, params) {
-        z_ = new int[words.nr_words() + N_*F_];
         zi_ = new int*[N_+1];
-        zi_[0] = z_;
-        int* zinext = z_;
+        zi_[0] = new int[words.nr_words() + N_*F_];
+        int* zinext = zi_[0];
         for (int i = 0; i != N_; ++i) {
             int c = 0;
             for (const sparse_int* j = words_[i]; j->value != -1; ++j) {
@@ -330,7 +329,7 @@ lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
     }
 
 void lda::lda_collapsed::step() {
-    int* z = z_;
+    int* z = zi_[0];
     floating zb_gamma[L_];
     for (int i = 0; i != N_; ++i) {
         floating z_bar[K_];
@@ -695,7 +694,7 @@ void lda::lda_collapsed::forward() {
 
     std::fill(sum_f_, sum_f_ + K_*F_, 0.);
     std::fill(sum_f2_, sum_f2_ + K_*F_, 0.);
-    int* z = z_;
+    int* z = zi_[0];
     for (int i = 0; i != N_; ++i) {
         for (const sparse_int* j = words_[i]; j->value != -1; ++j) {
             for (int cji = 0; cji != j->count; ++cji) {
@@ -875,7 +874,7 @@ void lda::lda_collapsed::print_words(std::ostream& out) const {
     floating multinomials[Nwords_];
     for (int k = 0; k != K_; ++k) {
         std::fill(multinomials, multinomials + Nwords_, beta_);
-        const int* z = z_;
+        const int* z = zi_[0];
         for (int i = 0; i != N_; ++i) {
             for (const sparse_int* j = words_[i]; j->value != -1; ++j) {
                 for (int cji = 0; cji != j->count; ++cji) {
@@ -893,7 +892,7 @@ void lda::lda_collapsed::print_words(std::ostream& out) const {
 
 void lda::lda_collapsed::print_topics(std::ostream& out) const {
     floating thetas[K_];
-    const int* z = z_;
+    const int* z = zi_[0];
     for (int i = 0; i != N_; ++i) {
         std::fill(thetas, thetas + K_, alpha_);
         for (const sparse_int* j = words_[i]; j->count != -1; ++j) {

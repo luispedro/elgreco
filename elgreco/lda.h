@@ -209,7 +209,7 @@ struct lda_collapsed : lda_base {
     public:
         lda_collapsed(lda_data& data, lda_parameters params);
         ~lda_collapsed() {
-            delete [] z_;
+            delete [] zi_[0];
             delete [] zi_;
             delete [] topic_;
             delete [] topic_count_[0];
@@ -235,7 +235,6 @@ struct lda_collapsed : lda_base {
     private:
         void solve_gammas();
 
-        int* z_;
         int** zi_;
 
         int* topic_;
