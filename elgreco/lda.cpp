@@ -740,6 +740,9 @@ void lda::lda_collapsed::solve_gammas() {
 
             floating mu = dot_product(gl, zbars.get() + (K_*i), K_);
             mu *= p2;
+            if (std::abs(mu) > 64.) {
+                mu = (mu > 0 ? 64. : -64.);
+            }
             if (!li[ell]) mu = -mu;
             floating s = left_truncated_normal(R, -mu);
             mu += s*std::sqrt(p2);
