@@ -1062,12 +1062,88 @@ void lda::lda_collapsed::save_model(std::ostream& out) const {
     out << Gmu_ << endl;
     out << endl;
     out << endl;
-    out << "NOT IMPLEMENTED! Go Away\n\n";
-    throw "Not implemented. GO AWAY\n";
+    for (int i = 0; i != N_; ++i) {
+        const int Ni = size(i);
+        out << Ni << ' ';
+        const int* z = zi_[i];
+        for (int zi = 0; zi != Ni; ++zi, ++z) {
+            out << *z << ' ';
+        }
+        out << endl;
+    }
+    for (int ell = 0; ell != L_; ++ell) {
+        const floating* gl = gamma(ell);
+        for (int k = 0; k != K_; ++k) {
+            out << gl[k];
+        }
+        out << endl;
+    }
 }
 
-void lda::lda_collapsed::load_model(std::istream& out) {
-    throw "Not implemented.\n";
+template<typename T>
+void check_value(std::istream& in, const T val) {
+    T t;
+    in >> t;
+    if (val != t) {
+        throw "Check failed: value is not what is expected\n";
+    }
+}
+
+void lda::lda_collapsed::load_model(std::istream& in) {
+    check_value<int>(in, N_);
+    check_value<int>(in, K_);
+    check_value<int>(in, F_);
+    check_value<int>(in, L_);
+    check_value<int>(in, Nwords_);
+
+    check_value<floating>(in, alpha_);
+    check_value<floating>(in, beta_);
+    check_value<floating>(in, Ga_);
+    check_value<floating>(in, Gb_);
+    check_value<floating>(in, Gn0_);
+    check_value<floating>(in, Gmu_);
+
+    std::fill(topic_, topic_ + K_, 0);
+    std::fill(topic_count_[0], topic_count_[0] + N_*K_, 0);
+    std::fill(topic_term_[0], topic_term_[0] + K_*Nwords_, 0);
+
+    std::fill(topic_numeric_count_[0], topic_numeric_count_[0] + F_*K_, 0);
+
+    std::fill(sum_f_, sum_f_ + K_*F_, 0.);
+    std::fill(sum_f2_, sum_f2_ + K_*F_, 0.);
+
+    for (int i = 0; i != N_; ++i) {
+        const int Ni = size(i);
+        check_value<int>(in, Ni);
+        int* z = zi_[i];
+        for (const sparse_int* j = words_[i]; j->value != -1; ++j) {
+            for (int cj = 0; cj != j->count; ++cj) {
+                int k;
+                in >> k;
+                *z++ = k;
+                ++topic_[k];
+                ++topic_count_[i][k];
+                ++topic_term_[j->value][k];
+            }
+        }
+        for (int f = 0; f != F_; ++f) {
+            const floating fv = features_[i][f];
+            int k;
+            in >> k;
+            *z++ = k;
+            ++topic_[k];
+            ++topic_numeric_count_[f][k];
+            sum_f(f)[k] += fv;
+            sum_f2(f)[k] += fv*fv;
+        }
+    }
+    for (int ell = 0; ell != L_; ++ell) {
+        floating* gl = gamma(ell);
+        for (int k = 0; k != K_; ++k) {
+            in >> gl[k];
+        }
+    }
+
 }
 
 
