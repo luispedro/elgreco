@@ -813,19 +813,16 @@ floating lda::lda_collapsed::logP(bool normalise) const {
         throw "not implemented.";
         logp += N_ * ( gsl_sf_lngamma(K_ * alpha_) - K_* gsl_sf_lngamma(alpha_));
     }
-    #pragma omp parallel for reduction(+:logp)
     for (int i = 0; i < N_; ++i) {
         for (int k = 0; k != K_; ++k) {
             logp += gsl_sf_lngamma(topic_count_[i][k] + alpha_);
         }
     }
-    #pragma omp parallel for reduction(+:logp)
     for (int j = 0; j < Nwords_; ++j) {
         for (int k = 0; k != K_; ++k) {
             logp += gsl_sf_lngamma(topic_term_[j][k] + beta_);
         }
     }
-    #pragma omp parallel for reduction(+:logp)
     for (int f = 0; f < F_; ++f) {
         const floating* sf = sum_f(f);
         const floating* sf2 = sum_f2(f);
