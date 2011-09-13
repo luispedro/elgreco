@@ -389,11 +389,12 @@ void lda::lda_collapsed::step() {
                 const floating n_prime_k = n_prime + 1;
                 const floating f_bar_k = (sf[k] + fv)/n_k;
                 const floating f2_bar_k = (sf2[k] + fv*fv)/n_k;
-                const floating a_prime_k = Ga_ + n_k/2.;
+                const floating a_prime_k = a_prime + 1./2;
                 const floating b_prime_k = Gb_ + n_k/2.* (f2_bar_k- f_bar_k*f_bar_k) + .5*n_k*Gn0_*(f_bar_k - Gmu_)*(f_bar_k - Gmu_)/n_prime_k;
                 assert(b_prime > 0);
                 assert(a_prime > 0);
                 p[k] = log(topic_count_[i][k] + alpha_);
+                p[k] -= log(size(i) + alpha_ - 1);
                 p[k] += 1./2.*log(n_prime/n_prime_k);
                 p[k] += gsl_sf_lngamma(a_prime)   + a_prime   * log(b_prime);
                 p[k] -= gsl_sf_lngamma(a_prime_k) + a_prime_k * log(b_prime_k);
