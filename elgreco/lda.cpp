@@ -1157,6 +1157,18 @@ int lda::lda_uncollapsed::retrieve_theta(int i, float* res, int size) const {
     std::copy(m, m + K_, res);
     return K_;
 }
+int lda::lda_collapsed::retrieve_theta(int i, float* res, int s) const {
+    if (i >= N_) return -1;
+    if (s != K_) return 0;
+    std::fill(res, res + K_, 0);
+    for (const int* z = zi_[i]; z != zi_[i+1]; ++z) {
+        ++res[*z];
+    }
+    for (int k = 0; k != K_; ++k) {
+        res[k] /= size(i);
+    }
+    return K_;
+}
 int lda::lda_base::retrieve_gamma(int ell, float* res, int size) const {
     if (size != K_) return 0;
     std::copy(gamma(ell), gamma(ell + 1), res);

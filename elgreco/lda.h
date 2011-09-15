@@ -71,6 +71,7 @@ struct lda_base {
         virtual void step() = 0;
         virtual void forward() = 0;
         virtual floating logP(bool normalise=false) const = 0;
+        virtual int retrieve_theta(int i, float* res, int size) const = 0;
 
         virtual void print_topics(std::ostream&) const = 0;
         virtual void print_words(std::ostream&) const = 0;
@@ -163,7 +164,7 @@ struct lda_uncollapsed : lda_base {
         void load(std::istream& topics, std::istream& words);
 
         int retrieve_logbeta(int k, float* res, int size) const;
-        int retrieve_theta(int i, float* res, int size) const;
+        virtual int retrieve_theta(int i, float* res, int size) const;
         int retrieve_ys(int i, float* res, int size) const;
         int retrieve_z_bar(int i, float* res, int size) const;
 
@@ -224,6 +225,8 @@ struct lda_collapsed : lda_base {
         virtual void step();
         virtual void forward();
         virtual floating logP(bool normalise=false) const;
+
+        virtual int retrieve_theta(int i, float* res, int size) const;
 
         int project_one(const std::vector<int>&, const std::vector<float>&, float* res, int size);
         void print_topics(std::ostream&) const;
