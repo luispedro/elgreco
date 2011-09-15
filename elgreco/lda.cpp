@@ -808,6 +808,30 @@ floating lda::lda_uncollapsed::logP(bool normalise) const {
     return p;
 }
 
+
+
+floating lda::lda_collapsed::logperplexity(const std::vector<int>& words, const std::vector<float>& fs) const {
+    if (int(fs.size()) != F_) return -1;
+    if ((*std::max_element(words.begin(), words.end()) >= Nwords_) ||
+        (*std::min_element(words.begin(), words.end()) < 0)) return -2;
+    floating logp = 0;
+    std::vector<int> zs;
+    floating counts[K_];
+    this->sample_one(words, fs, zs, counts);
+    for (int k = 0; k != K_; ++k) {
+        logp += gsl_sf_lngamma(counts[k] + alpha_);
+    }
+    for (int j = 0; j != words.size(); ++j) {
+        const int w = words[j];
+        logp += gsl_sf_lngamma(topic_term_[w][zs[j]] + beta_);
+    }
+    for (int f = 0; f != F_; ++f) {
+        throw "This is not implemented.";
+    }
+    return logp;
+}
+
+
 floating lda::lda_collapsed::logP(bool normalise) const {
     floating logp = 0;
     if (normalise) {
@@ -1201,7 +1225,7 @@ int lda::lda_uncollapsed::set_theta(int i, float* src, int size) {
     return K_;
 }
 
-int lda::lda_uncollapsed::project_one(const std::vector<int>& words, const std::vector<float>& fs, float* res, int size) {
+int lda::lda_uncollapsed::project_one(const std::vector<int>& words, const std::vector<float>& fs, float* res, int size) const {
     if (size != K_) return 0;
     floating thetas[K_];
     this->sample_one(words, fs, thetas);
@@ -1209,21 +1233,30 @@ int lda::lda_uncollapsed::project_one(const std::vector<int>& words, const std::
     return size;
 }
 
-int lda::lda_collapsed::project_one(const std::vector<int>& words, const std::vector<float>& fs, float* res, int size) {
+int lda::lda_collapsed::project_one(const std::vector<int>& words, const std::vector<float>& fs, float* res, int size) const {
     if (size != K_) return 0;
     if (int(fs.size()) != F_) return -1;
     if ((*std::max_element(words.begin(), words.end()) >= Nwords_) ||
         (*std::min_element(words.begin(), words.end()) < 0)) return -2;
     std::vector<int> zs;
+    floating counts[K_];
+    this->sample_one(words, fs, zs, counts);
+    for (int k = 0; k != K_; ++k) res[k] = floating(counts[k])/zs.size();
+    assert(std::accumulate(counts, counts + K_, 0.) == floating(zs.size()));
+    return size;
+}
+
+void lda::lda_collapsed::sample_one(const std::vector<int>& words, const std::vector<float>& fs, std::vector<int>& zs, floating counts[]) const {
     zs.reserve(words.size() + fs.size());
-    int counts[K_];
     std::fill(counts, counts + K_, 0);
+
+    random_source R2 = R;
     for (unsigned zi = 0; zi != (words.size() + fs.size()); ++zi) {
-        const int z = R.random_int(0,K_);
+        const int z = R2.random_int(0,K_);
         zs.push_back(z);
         ++counts[z];
     }
-    for (int it = 0; it != 30; ++it) {
+    for (int it = 0; it != 32; ++it) {
         for (unsigned zi = 0; zi != zs.size(); ++zi) {
             const int ok = zs[zi];
             --counts[ok];
@@ -1268,15 +1301,12 @@ int lda::lda_collapsed::project_one(const std::vector<int>& words, const std::ve
                     p[k] -= gsl_sf_lngamma(a_prime_k)+a_prime_k * log(b_prime_k);
                 }
             }
-            const int k = sample_function(R, p, K_);
+            const int k = sample_function(R2, p, K_);
             assert(k < K_);
             zs[zi] = k;
             ++counts[k];
         }
     }
-    for (int k = 0; k != K_; ++k) res[k] = floating(counts[k])/zs.size();
-    assert(std::accumulate(counts, counts + K_, 0) == int(zs.size()));
-    return size;
 }
 
 float lda::lda_base::score_one(int ell, const float* res, int size) const {
@@ -1285,7 +1315,7 @@ float lda::lda_base::score_one(int ell, const float* res, int size) const {
     return dot_product(res, gamma(ell), size);
 }
 
-floating lda::lda_uncollapsed::logperplexity(const std::vector<int>& words, const std::vector<float>& fs) {
+floating lda::lda_uncollapsed::logperplexity(const std::vector<int>& words, const std::vector<float>& fs) const {
     floating thetas[K_];
     this->sample_one(words, fs, thetas);
     floating crossed[K_ * Nwords_];
@@ -1315,7 +1345,8 @@ floating lda::lda_uncollapsed::logperplexity(const std::vector<int>& words, cons
     return logp;
 }
 
-void lda::lda_uncollapsed::sample_one(const std::vector<int>& words, const std::vector<float>& fs, floating* thetas) {
+void lda::lda_uncollapsed::sample_one(const std::vector<int>& words, const std::vector<float>& fs, floating* thetas) const {
+    random_source R2 = R;
     const int nr_iters = 20;
     std::fill(thetas, thetas + K_, 1.);
 
@@ -1350,7 +1381,7 @@ void lda::lda_uncollapsed::sample_one(const std::vector<int>& words, const std::
             for (int k = 0; k != K_; ++k) {
                 p[k] = thetas[k]*crossed_j[k];
             }
-            int z = categorical_sample(R, p, K_);
+            int z = categorical_sample(R2, p, K_);
             ++proposal[z];
         }
         for (int f = 0; f != F_; ++f) {
@@ -1358,10 +1389,10 @@ void lda::lda_uncollapsed::sample_one(const std::vector<int>& words, const std::
             for (int k = 0; k != K_; ++k) {
                 p[k] = thetas[k] * normals[f][k];
             }
-            int z = categorical_sample(R, p, K_);
+            int z = categorical_sample(R2, p, K_);
             ++proposal[z];
         }
-        dirichlet_sample(R, thetas, proposal, K_);
+        dirichlet_sample(R2, thetas, proposal, K_);
     }
 }
 

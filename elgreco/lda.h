@@ -88,7 +88,8 @@ struct lda_base {
             load_model(in);
         }
 
-        virtual int project_one(const std::vector<int>&, const std::vector<float>&, float* res, int size) = 0;
+        virtual int project_one(const std::vector<int>&, const std::vector<float>&, float* res, int size) const = 0;
+        virtual floating logperplexity(const std::vector<int>&, const std::vector<float>&) const = 0;
         int nr_topics() const { return K_; }
         int nr_labels() const { return L_; }
 
@@ -171,11 +172,11 @@ struct lda_uncollapsed : lda_base {
         int set_logbeta(int k, float* res, int size);
         int set_theta(int i, float* res, int size);
 
-        int project_one(const std::vector<int>&, const std::vector<float>&, float* res, int size);
+        int project_one(const std::vector<int>&, const std::vector<float>&, float* res, int size) const;
         void nosample(int i) { sample_[i] = false; }
         void sample(int i) { sample_[i] = true; }
 
-        floating logperplexity(const std::vector<int>&, const std::vector<float>& fs);
+        virtual floating logperplexity(const std::vector<int>&, const std::vector<float>& fs) const;
 
         void print_topics(std::ostream&) const;
         void print_words(std::ostream&) const;
@@ -183,7 +184,7 @@ struct lda_uncollapsed : lda_base {
         void load_model(std::istream&);
 
     private:
-        void sample_one(const std::vector<int>&, const std::vector<float>&, floating*);
+        void sample_one(const std::vector<int>&, const std::vector<float>&, floating*) const;
 
         floating** multinomials_;
         normal_params** normals_;
@@ -228,7 +229,8 @@ struct lda_collapsed : lda_base {
 
         virtual int retrieve_theta(int i, float* res, int size) const;
 
-        int project_one(const std::vector<int>&, const std::vector<float>&, float* res, int size);
+        int project_one(const std::vector<int>&, const std::vector<float>&, float* res, int size) const;
+        virtual floating logperplexity(const std::vector<int>&, const std::vector<float>&) const;
         void print_topics(std::ostream&) const;
         void print_words(std::ostream&) const;
         void save_model(std::ostream&) const;
@@ -236,6 +238,7 @@ struct lda_collapsed : lda_base {
 
         void verify() const;
     private:
+        void sample_one(const std::vector<int>&, const std::vector<float>&, std::vector<int>&, floating counts[]) const;
         void solve_gammas();
 
         int** zi_;
