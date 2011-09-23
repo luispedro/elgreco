@@ -820,7 +820,7 @@ floating lda::lda_collapsed::logperplexity(const std::vector<int>& words, const 
 
     floating logp = 0;
     int nr_w[K_];
-    std::fill(nr_w, nr_w + K_, -1);
+    std::fill(nr_w, nr_w + K_, 0);
     for (int j = 0; j != Nwords_; ++j) {
         for (int k = 0; k != K_; ++k) {
             nr_w[k] += topic_term_[j][k];
@@ -830,7 +830,7 @@ floating lda::lda_collapsed::logperplexity(const std::vector<int>& words, const 
     for (unsigned j = 0; j != words.size(); ++j) {
         const int w = words[j];
         const int k = zs[j];
-        logp += log(floating(topic_term_[w][k] + beta_)/(nr_w[k] + K_*beta_));
+        logp += log(floating(topic_term_[w][k] + beta_)/(nr_w[k] + Nwords_*beta_));
     }
     for (int f = 0; f != F_; ++f) {
         throw "This is not implemented.";
