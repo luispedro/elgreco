@@ -814,16 +814,23 @@ floating lda::lda_collapsed::logperplexity(const std::vector<int>& words, const 
     if (int(fs.size()) != F_) return -1;
     if ((*std::max_element(words.begin(), words.end()) >= Nwords_) ||
         (*std::min_element(words.begin(), words.end()) < 0)) return -2;
-    floating logp = 0;
     std::vector<int> zs;
     floating counts[K_];
     this->sample_one(words, fs, zs, counts);
-    for (int k = 0; k != K_; ++k) {
-        logp += gsl_sf_lngamma(counts[k] + alpha_);
+
+    floating logp = 0;
+    int nr_w[K_];
+    std::fill(nr_w, nr_w + K_, -1);
+    for (int j = 0; j != Nwords_; ++j) {
+        for (int k = 0; k != K_; ++k) {
+            nr_w[k] += topic_term_[j][k];
+        }
     }
-    for (int j = 0; j != words.size(); ++j) {
+
+    for (unsigned j = 0; j != words.size(); ++j) {
         const int w = words[j];
-        logp += gsl_sf_lngamma(topic_term_[w][zs[j]] + beta_);
+        const int k = zs[j];
+        logp += log(floating(topic_term_[w][k] + beta_)/(nr_w[k] + K_*beta_));
     }
     for (int f = 0; f != F_; ++f) {
         throw "This is not implemented.";
