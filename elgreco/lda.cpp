@@ -812,8 +812,10 @@ floating lda::lda_uncollapsed::logP(bool normalise) const {
 
 floating lda::lda_collapsed::logperplexity(const std::vector<int>& words, const std::vector<float>& fs) const {
     if (int(fs.size()) != F_) return -1;
-    if ((*std::max_element(words.begin(), words.end()) >= Nwords_) ||
-        (*std::min_element(words.begin(), words.end()) < 0)) return -2;
+    if (words.size() && (
+        (*std::max_element(words.begin(), words.end()) >= Nwords_) ||
+        (*std::min_element(words.begin(), words.end()) < 0)
+        )) return -2;
     std::vector<int> zs;
     floating counts[K_];
     this->sample_one(words, fs, zs, counts);
