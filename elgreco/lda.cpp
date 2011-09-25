@@ -430,7 +430,7 @@ void lda::lda_collapsed::step() {
         }
     }
     this->solve_gammas();
-    this->update_alpha_beta();
+    //this->update_alpha_beta();
     this->verify();
 }
 void lda::lda_uncollapsed::step() {
@@ -723,16 +723,17 @@ void lda::lda_collapsed::forward() {
 }
 
 void lda::lda_collapsed::update_alpha_beta() {
-    floating ga = gsl_sf_psi(K_*alpha_) - gsl_sf_psi(alpha_);
-    ga *= N_*K_;
+    floating ga = N_*K_ * (gsl_sf_psi  (alpha_) -    gsl_sf_psi  (K_*alpha_));
+    floating H  = N_*K_ * (gsl_sf_psi_1(alpha_) - K_*gsl_sf_psi_1(K_*alpha_));
     for (int i = 0; i != N_; ++i) {
         for (int k = 0; k != K_; ++k) {
-            const floating t_ij = topic_count_[i][k];
-            ga += std::log(t_ij);
+            const floating N_ij = topic_count_[i][k];
+            ga += gsl_sf_psi  (N_ij + alpha_);
+            H  += gsl_sf_psi_1(N_ij + alpha_);
         }
-        ga -= K_*std::log(floating(size(i)));
+        ga -=    K_ * gsl_sf_psi  (K_*alpha_ + floating(size(i)));
+        H  -= K_*K_ * gsl_sf_psi_1(K_*alpha_ + floating(size(i)));
     }
-    floating H = N_*K_ * (K_*gsl_sf_psi_1(K_*alpha_) - gsl_sf_psi_1(alpha_));
     alpha_ -= ga/H;
 }
 
