@@ -240,6 +240,7 @@ struct lda_collapsed : lda_base {
     private:
         void sample_one(const std::vector<int>&, const std::vector<float>&, std::vector<int>&, floating counts[]) const;
         void solve_gammas();
+        void update_alpha_beta();
 
         int** zi_;
 

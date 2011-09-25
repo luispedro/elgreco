@@ -430,6 +430,7 @@ void lda::lda_collapsed::step() {
         }
     }
     this->solve_gammas();
+    this->update_alpha_beta();
     this->verify();
 }
 void lda::lda_uncollapsed::step() {
@@ -720,6 +721,21 @@ void lda::lda_collapsed::forward() {
     }
     std::fill(gamma_, gamma_ + K_ *L_, 0.);
 }
+
+void lda::lda_collapsed::update_alpha_beta() {
+    floating ga = gsl_sf_psi(K_*alpha_) - gsl_sf_psi(alpha_);
+    ga *= N_*K_;
+    for (int i = 0; i != N_; ++i) {
+        for (int k = 0; k != K_; ++k) {
+            const floating t_ij = topic_count_[i][k];
+            ga += std::log(t_ij);
+        }
+        ga -= K_*std::log(floating(size(i)));
+    }
+    floating H = N_*K_ * (K_*gsl_sf_psi_1(K_*alpha_) - gsl_sf_psi_1(alpha_));
+    alpha_ -= ga/H;
+}
+
 
 void lda::lda_collapsed::solve_gammas() {
     if (!L_) return;
