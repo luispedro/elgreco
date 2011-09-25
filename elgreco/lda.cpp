@@ -429,9 +429,7 @@ void lda::lda_collapsed::step() {
             }
         }
     }
-    for (int g = 0; g != 4; ++g) {
-        this->solve_gammas();
-    }
+    this->solve_gammas();
     this->verify();
 }
 void lda::lda_uncollapsed::step() {
@@ -727,12 +725,9 @@ void lda::lda_collapsed::solve_gammas() {
     if (!L_) return;
     using boost::scoped_array;
     scoped_array<double> zbars(new double[N_ * K_]);
-    scoped_array<double> y(new double[N_]);
-    gsl_matrix_view Z = gsl_matrix_view_array(zbars.get(), N_, K_);
-    gsl_vector_view b = gsl_vector_view_array(y.get(), N_);
-
-    gsl_vector* r = gsl_vector_alloc(N_);
-    gsl_vector* tau = gsl_vector_alloc(K_);
+    scoped_array<double> gdata(new double[K_]);
+    scoped_array<double> ddata(new double[K_]);
+    scoped_array<double> Hdata(new double[K_*K_]);
 
     for (int i = 0; i != N_; ++i) {
         floating* zb = zbars.get() + K_*i;
@@ -741,29 +736,33 @@ void lda::lda_collapsed::solve_gammas() {
         }
     }
 
-    gsl_linalg_QR_decomp(&Z.matrix, tau);
     for (int ell = 0; ell < L_; ++ell) {
         floating* gl = gamma(ell);
+        std::fill(gdata.get(), gdata.get() + K_, 0.);
+        std::fill(Hdata.get(), Hdata.get() + K_*K_, 0.);
         for (int i = 0; i != N_; ++i) {
-            const floating* li = ls(i);
-            const floating p2 = 8./9.;
-
-            floating mu = dot_product(gl, zbars.get() + (K_*i), K_);
-            mu *= p2;
-            if (std::abs(mu) > 64.) {
-                mu = (mu > 0 ? 64. : -64.);
+            const floating* zi = zbars.get() + K_*i;
+            const floating f_g = ls(i)[ell]*(8./9)*dot_product(gl, zi, K_);
+            const floating sq_tpi = 0.3989422804014327; // sqrt(1/2./pi)
+            const floating phi1 = sq_tpi*std::exp(-f_g*f_g/2.);
+            const floating phi2 = (-2.)*f_g*phi1;
+            for (int k = 0; k != K_; ++k) {
+                gdata[k] += zi[k]*phi1;
+                for (int m = 0; m != K_; ++m) {
+                    Hdata[k*K_+m] += zi[k]*zi[m]*phi2;
+                }
             }
-            if (!li[ell]) mu = -mu;
-            floating s = left_truncated_normal(R, -mu);
-            mu += s*std::sqrt(p2);
-            y[i] = (li[ell] ? mu : -mu);
         }
+        gsl_vector_view gvector = gsl_vector_view_array(gdata.get(), K_);
+        gsl_vector_view dvector = gsl_vector_view_array(ddata.get(), K_);
+        gsl_matrix_view Hmatrix = gsl_matrix_view_array(Hdata.get(), K_, K_);
+        gsl_linalg_cholesky_decomp(&Hmatrix.matrix);
+        gsl_linalg_cholesky_solve(&Hmatrix.matrix, &gvector.vector, &dvector.vector);
 
-        gsl_vector_view gammav = gsl_vector_view_array(gl, K_);
-        gsl_linalg_QR_lssolve(&Z.matrix, tau, &b.vector, &gammav.vector, r);
+        for (int k = 0; k != K_; ++k) {
+            gl[k] += ddata[k];
+        }
     }
-    gsl_vector_free(tau);
-    gsl_vector_free(r);
 }
 
 
