@@ -271,7 +271,7 @@ lda::lda_uncollapsed::lda_uncollapsed(lda_data& words, lda_parameters params)
                 for (int ell = 0; ell != L_; ++ell) {
                     floating* yi = ys(i);
                     yi[ell] = left_truncated_normal(R, 0);
-                    if (!ls(i)[ell]) yi[ell] = -yi[ell];
+                    if (ls(i)[ell] < 0) yi[ell] = -yi[ell];
                 }
             }
         } else {
@@ -347,10 +347,14 @@ void lda::lda_collapsed::step() {
                                 (topic_[k] + beta_) *
                         (topic_count_[i][k] + alpha_)/
                                 (size(i) + alpha_ - 1);
+                    const floating* li = ls(i);
                     for (int ell = 0; ell != L_; ++ell) {
-                        const floating delta = gamma(ell)[k] - gamma(ell)[ok];
-                        const floating s = ls(i)[ell] ? +1 : -1;
-                        p[k] *= phi(s * (zb_gamma[ell]+delta/Ni));
+                        if (li[ell]) {
+                            const floating delta = gamma(ell)[k] - gamma(ell)[ok];
+                            p[k] *= phi(li[ell] * (zb_gamma[ell]+delta/Ni));
+                        } else {
+                            p[k] *= (.5);
+                        }
                     }
                     assert(!std::isnan(p[k]));
                 }
@@ -400,10 +404,14 @@ void lda::lda_collapsed::step() {
                 p[k] -= gsl_sf_lngamma(a_prime_k) + a_prime_k * log(b_prime_k);
                 assert(!std::isnan(p[k]));
                 for (int ell = 0; ell != L_; ++ell) {
-                    const floating delta = gamma(ell)[k] - gamma(ell)[ok];
-                    const floating s = ls(i)[ell] ? +1 : -1;
-                    const floating e = phi(s * (zb_gamma[ell]+delta/Ni));
-                    p[k] += std::log(e);
+                    const floating* li = ls(i);
+                    if (li[ell]) {
+                        const floating delta = gamma(ell)[k] - gamma(ell)[ok];
+                        const floating e = phi(li[ell] * (zb_gamma[ell]+delta/Ni));
+                        p[k] += std::log(e);
+                    } else {
+                        p[k] += -1; // std::log(.5);
+                    }
                 }
                 assert(!std::isnan(p[k]));
             }
@@ -534,14 +542,15 @@ void lda::lda_uncollapsed::step() {
                 floating* li = ls(i);
                 floating* yi = ys(i);
                 for (int ell = 0; ell != L_; ++ell) {
-                    floating mu = dot_product(zb, gamma(ell), K_);
-                    // Normalise:
-                    const floating p2 = Vp_/(1.+Vp_);
-                    mu *= p2;
-                    if (!li[ell]) mu = -mu;
-                    floating s = left_truncated_normal(R2, -mu);
-                    yi[ell] = mu + s/std::sqrt(p2);
-                    if (!li[ell]) yi[ell] = -yi[ell];
+                    if (li[ell]) {
+                        floating mu = dot_product(zb, gamma(ell), K_);
+                        // Normalise:
+                        const floating p2 = Vp_/(1.+Vp_);
+                        mu *= li[ell] * p2;
+                        floating s = left_truncated_normal(R2, -mu);
+                        yi[ell] = mu + s/std::sqrt(p2);
+                        yi[ell] *= li[ell];
+                    }
                     //std::cerr << "mu_i: " << mu << "; ys_i: " << yi[ell] << " (ls_[i]: " << floating(ls_[i]) << ")\n";
                 }
             }

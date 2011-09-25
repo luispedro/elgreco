@@ -30,7 +30,7 @@ struct lda_data {
             for (unsigned int i = 0; i != docs_.size(); ++i) res += size(i);
             return res;
         }
-        void push_back_doc(const std::vector<int>& nd, const std::vector<floating>& nf, const std::vector<bool>& nl) {
+        void push_back_doc(const std::vector<int>& nd, const std::vector<floating>& nf, const std::vector<floating>& nl) {
             docs_.push_back(nd);
             for (unsigned i = 0; i != nd.size(); ++i) {
                 if (nd[i] >= nr_terms_) nr_terms_ = nd[i]+1;
@@ -47,11 +47,11 @@ struct lda_data {
         floating feature(int d, int w) const { return features_[d][w]; }
         int nr_features() const { return features_[0].size(); }
 
-        bool label(int d, int ell) const { return labels_[d][ell]; }
+        floating label(int d, int ell) const { return labels_[d][ell]; }
     private:
         std::vector< std::vector<int> > docs_;
         std::vector< std::vector<floating> > features_;
-        std::vector< std::vector<bool> > labels_;
+        std::vector< std::vector<floating> > labels_;
         int nr_terms_;
 };
 
