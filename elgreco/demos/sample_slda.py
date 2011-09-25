@@ -22,12 +22,13 @@ def load_data(datafile):
 labels = [int(line.strip()) for line in file('../train-label.dat')]
 
 data = lda.lda_data()
-labs = np.zeros(nr_labels, bool)
+labs = np.zeros(nr_labels, np.float32)
 for doc,lab in zip(load_data('../train-data.dat'), labels):
-    labs[:] = 0
+    if np.random.random() < .6: continue
+    labs[:] = -1
     labs[lab] = 1
     fs = [np.random.random() for f in xrange(nr_f)]
-    data.push_back_doc(doc, fs, labs)
+    data.push_back_doc(doc, fs, map(float,labs))
     
 params = lda.lda_parameters()
 params.alpha = .01
