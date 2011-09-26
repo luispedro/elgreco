@@ -749,6 +749,7 @@ void lda::lda_collapsed::solve_gammas() {
     std::fill(Hdata.get(), Hdata.get() + L_*K_*K_, 0.);
 
     const floating sq_tpi = 0.3989422804014327; // sqrt(1/2./pi)
+    const floating lambda = -1./8.;
     for (int i = 0; i != N_; ++i) {
         const floating* li = ls(i);
         floating zi[K_];
@@ -781,7 +782,14 @@ void lda::lda_collapsed::solve_gammas() {
     gsl_vector_view dvector = gsl_vector_view_array(ddata.get(), K_);
     gsl_permutation* permutation = gsl_permutation_alloc(K_);
     for (int ell = 0; ell != L_; ++ell) {
+        floating* gl = gamma(ell);
+        double* g = gdata.get() + K_*ell;
         double* H = Hdata.get() + ell*K_*K_;
+        for (int k = 0; k != K_; ++k) {
+            g[k] += 2*lambda*gl[k];
+            H[k*K_+k] += 2*lambda;
+        }
+
         int signum;
         gsl_vector_view gvector = gsl_vector_view_array(gdata.get() + ell*K_, K_);
         gsl_matrix_view Hmatrix = gsl_matrix_view_array(H, K_, K_);
@@ -789,7 +797,6 @@ void lda::lda_collapsed::solve_gammas() {
         gsl_linalg_LU_solve(&Hmatrix.matrix, permutation, &gvector.vector, &dvector.vector);
 
 
-        floating* gl = gamma(ell);
         for (int k = 0; k != K_; ++k) {
             gl[k] -= ddata[k];
         }
