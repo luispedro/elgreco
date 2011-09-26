@@ -63,5 +63,6 @@ for ti,doc in enumerate(tdocuments):
 
     tests.append([sampler.score_one(ell,T[ti]) for ell in xrange(nr_labels)])
 tests = np.array(tests)
+tlabels = np.array(tlabels)
 print np.mean(tlabels == tests.argmax(1))
 
