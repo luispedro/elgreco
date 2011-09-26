@@ -741,48 +741,57 @@ void lda::lda_collapsed::update_alpha_beta() {
 void lda::lda_collapsed::solve_gammas() {
     if (!L_) return;
     using boost::scoped_array;
-    scoped_array<double> zbars(new double[N_ * K_]);
-    scoped_array<double> gdata(new double[K_]);
+    scoped_array<double> gdata(new double[L_*K_]);
+    scoped_array<double> Hdata(new double[L_*K_*K_]);
     scoped_array<double> ddata(new double[K_]);
-    scoped_array<double> Hdata(new double[K_*K_]);
-    gsl_permutation* permutation = gsl_permutation_alloc(K_);
 
+    std::fill(gdata.get(), gdata.get() + L_*K_, 0.);
+    std::fill(Hdata.get(), Hdata.get() + L_*K_*K_, 0.);
+
+    const floating sq_tpi = 0.3989422804014327; // sqrt(1/2./pi)
     for (int i = 0; i != N_; ++i) {
-        floating* zb = zbars.get() + K_*i;
+        const floating* li = ls(i);
+        floating zi[K_];
         for (int k = 0; k != K_; ++k) {
-            zb[k] = (topic_count_[i][k] + alpha_)/(size(i) + K_*alpha_);
+            // The factor of 8./9 is used below, but the code is somewhat simpler if
+            // we insert it here
+            zi[k] = (8./9)*(topic_count_[i][k] + alpha_)/(size(i) + K_*alpha_);
         }
-    }
-
-    for (int ell = 0; ell < L_; ++ell) {
-        floating* gl = gamma(ell);
-        std::fill(gdata.get(), gdata.get() + K_, 0.);
-        std::fill(Hdata.get(), Hdata.get() + K_*K_, 0.);
-        for (int i = 0; i != N_; ++i) {
-            const floating* li = ls(i);
+        for (int ell = 0; ell < L_; ++ell) {
             if (li[ell]) {
-                const floating* zi = zbars.get() + K_*i;
-                const floating f_g = li[ell]*(8./9)*dot_product(gl, zi, K_);
-                const floating sq_tpi = 0.3989422804014327; // sqrt(1/2./pi)
+                const floating f_g = li[ell]*dot_product(gamma(ell), zi, K_);
+                const floating phi0 = phi(f_g);
                 const floating phi1 = sq_tpi*std::exp(-f_g*f_g/2.);
-                const floating phi2 = (-2.)*f_g*phi1;
+                const floating phi2 = -f_g*phi1;
+                const floating gfactor = phi1/phi0;
+                const floating hfactor = (phi2/phi0 - gfactor*gfactor);
+
+                double* g = gdata.get() + K_*ell;
+                double* H = Hdata.get() + K_*K_*ell;
+
                 for (int k = 0; k != K_; ++k) {
-                    gdata[k] += zi[k]*phi1;
+                    g[k] += li[ell] * zi[k] * gfactor;
                     for (int m = 0; m != K_; ++m) {
-                        Hdata[k*K_+m] += zi[k]*zi[m]*phi2;
+                        H[k*K_+m] += zi[k]*zi[m]*hfactor;
                     }
                 }
             }
         }
+    }
+    gsl_vector_view dvector = gsl_vector_view_array(ddata.get(), K_);
+    gsl_permutation* permutation = gsl_permutation_alloc(K_);
+    for (int ell = 0; ell != L_; ++ell) {
+        double* H = Hdata.get() + ell*K_*K_;
         int signum;
-        gsl_vector_view gvector = gsl_vector_view_array(gdata.get(), K_);
-        gsl_vector_view dvector = gsl_vector_view_array(ddata.get(), K_);
-        gsl_matrix_view Hmatrix = gsl_matrix_view_array(Hdata.get(), K_, K_);
+        gsl_vector_view gvector = gsl_vector_view_array(gdata.get() + ell*K_, K_);
+        gsl_matrix_view Hmatrix = gsl_matrix_view_array(H, K_, K_);
         gsl_linalg_LU_decomp(&Hmatrix.matrix, permutation, &signum);
         gsl_linalg_LU_solve(&Hmatrix.matrix, permutation, &gvector.vector, &dvector.vector);
 
+
+        floating* gl = gamma(ell);
         for (int k = 0; k != K_; ++k) {
-            gl[k] += ddata[k];
+            gl[k] -= ddata[k];
         }
     }
     gsl_permutation_free(permutation);
