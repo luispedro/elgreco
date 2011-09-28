@@ -429,7 +429,7 @@ void lda::lda_collapsed::step() {
             }
         }
     }
-    this->solve_gammas();
+    this->update_gammas();
     //this->update_alpha_beta();
     this->verify();
 }
@@ -738,7 +738,7 @@ void lda::lda_collapsed::update_alpha_beta() {
 }
 
 
-void lda::lda_collapsed::solve_gammas() {
+void lda::lda_collapsed::update_gammas() {
     if (!L_) return;
     using boost::scoped_array;
     scoped_array<double> gdata(new double[L_*K_]);
@@ -749,6 +749,7 @@ void lda::lda_collapsed::solve_gammas() {
     std::fill(Hdata.get(), Hdata.get() + L_*K_*K_, 0.);
 
     const floating sq_tpi = 0.3989422804014327; // sqrt(1/2./pi)
+    const bool using_l2_penalty = false;
     const floating lambda = -1./8.;
     for (int i = 0; i != N_; ++i) {
         const floating* li = ls(i);
@@ -786,8 +787,13 @@ void lda::lda_collapsed::solve_gammas() {
         double* g = gdata.get() + K_*ell;
         double* H = Hdata.get() + ell*K_*K_;
         for (int k = 0; k != K_; ++k) {
-            g[k] += 2*lambda*gl[k];
-            H[k*K_+k] += 2*lambda;
+            if (using_l2_penalty) {
+                g[k] += 2*lambda*gl[k];
+                H[k*K_+k] += 2*lambda;
+            } else {
+                if (gl[k] < 0) g[k] -= lambda;
+                else if (gl[k] > 0) g[k] += lambda;
+            }
         }
 
         int signum;
@@ -798,7 +804,13 @@ void lda::lda_collapsed::solve_gammas() {
 
 
         for (int k = 0; k != K_; ++k) {
-            gl[k] -= ddata[k];
+            const double nval = gl[k] - ddata[k];
+            if (using_l2_penalty) {
+                gl[k] = nval;
+            } else {
+                if ((nval * gl[k]) >= 0) gl[k] = nval;
+                else gl[k] = 0;
+            }
         }
     }
     gsl_permutation_free(permutation);
