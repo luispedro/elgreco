@@ -1,4 +1,4 @@
-import lda
+from elgreco import lda
 documents = []
 for line in file('ap/ap.dat'):
     tokens = line.strip().split()
