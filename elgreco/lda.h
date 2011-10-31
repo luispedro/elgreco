@@ -125,8 +125,8 @@ struct lda_base {
         const floating* ls(int i) const { return ls_ + i*L_; }
 
         floating* gamma_;
-        floating* gamma(int ell) {assert(ell < L_); return gamma_ + ell*K_; }
-        const floating* gamma(int ell) const { assert(ell < L_); return gamma_ + ell*K_; }
+        floating* gamma(int ell) {assert(ell <= L_); return gamma_ + ell*K_; }
+        const floating* gamma(int ell) const { assert(ell <= L_); return gamma_ + ell*K_; }
 
         floating alpha_;
         floating beta_;

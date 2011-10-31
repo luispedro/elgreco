@@ -1263,6 +1263,7 @@ int lda::lda_collapsed::retrieve_theta(int i, float* res, int s) const {
 }
 int lda::lda_base::retrieve_gamma(int ell, float* res, int size) const {
     if (size != K_) return 0;
+    if (ell > L_) return -1;
     std::copy(gamma(ell), gamma(ell + 1), res);
     return K_;
 }
