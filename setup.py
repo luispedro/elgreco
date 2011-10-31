@@ -7,6 +7,7 @@ import os
 undef_macros=[]
 if os.environ.get('DEBUG'):
     undef_macros=['NDEBUG']
+execfile('elgreco/elgreco_version.py')
 
 lda_module = Extension(
                 'elgreco._lda',
@@ -25,7 +26,7 @@ random_module = Extension(
                 )
 
 setup (name = 'elgreco',
-       version = '0.1',
+       version = __version__,
        author = 'Luis Pedro Coelho <luis@luispedro.org>',
        ext_modules = [lda_module, random_module],
        py_modules = ['elgreco.lda'],
