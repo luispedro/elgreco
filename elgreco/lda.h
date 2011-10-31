@@ -214,10 +214,16 @@ struct lda_collapsed : lda_base {
             delete [] zi_[0];
             delete [] zi_;
             delete [] topic_;
+
+            delete [] topic_area_[0];
+            delete [] topic_area_;
+
             delete [] topic_count_[0];
             delete [] topic_count_;
+
             delete [] topic_term_[0];
             delete [] topic_term_;
+
             delete [] topic_numeric_count_[0];
             delete [] topic_numeric_count_;
             delete [] sum_f_;
@@ -246,6 +252,7 @@ struct lda_collapsed : lda_base {
 
         int* topic_;
         int** topic_count_;
+        int** topic_area_;
         int** topic_term_;
         int** topic_numeric_count_;
 

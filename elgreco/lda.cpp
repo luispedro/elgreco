@@ -171,6 +171,11 @@ floating phi(const double x) {
     return 1.-phi2(2.-x);
 }
 
+int area_of(int w) {
+    if (w < 256) return 0;
+    if (w < 512) return 1;
+    return 2;
+}
 }
 
 lda::lda_base::lda_base(lda_data& input, lda_parameters params)
@@ -305,6 +310,12 @@ lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
             topic_count_[m] = topic_count_[m-1]+K_;
         }
 
+        topic_area_ = new int*[N_];
+        topic_area_[0] = new int[3*K_];
+        for (int a = 1; a != 3; ++a) {
+            topic_area_[a] = topic_area_[a-1]+K_;
+        }
+
         topic_term_ = new int*[Nwords_];
         topic_term_[0] = new int[Nwords_*K_];
         for (int t = 1; t != Nwords_; ++t) {
@@ -336,15 +347,17 @@ void lda::lda_collapsed::step() {
         }
 
         for (const sparse_int* j = words_[i]; j->value != -1; ++j) {
+            const int area = area_of(j->value);
             for (int cji = 0; cji != j->count; ++cji) {
                 floating p[K_];
                 const int ok = *z;
                 --topic_count_[i][ok];
                 --topic_[ok];
+                --topic_area_[area][ok];
                 --topic_term_[j->value][ok];
                 for (int k = 0; k != K_; ++k) {
                     p[k] = (topic_term_[j->value][k] + beta_)/
-                                (topic_[k] + beta_) *
+                                (topic_area_[area][k] + beta_) *
                         (topic_count_[i][k] + alpha_)/
                                 (size(i) + alpha_ - 1);
                     const floating* li = ls(i);
@@ -363,6 +376,7 @@ void lda::lda_collapsed::step() {
                 *z++ = k;
                 ++topic_count_[i][k];
                 ++topic_[k];
+                ++topic_area_[area][k];
                 ++topic_term_[j->value][k];
                 for (int ell = 0; ell != L_; ++ell) {
                     const floating* gl = gamma(ell);
@@ -662,6 +676,11 @@ void lda::lda_collapsed::verify() const {
 
         assert( cdocs == (wc + fc) );
     }
+    for (int k = 0; k != K_; ++k) {
+        int pa = 0;
+        for (int a = 0; a != 3; ++a) pa += topic_area_[a][k];
+        assert( pa == topic_[k]);
+    }
 }
 
 void lda::lda_uncollapsed::forward() {
@@ -690,6 +709,7 @@ void lda::lda_collapsed::forward() {
     std::fill(topic_, topic_ + K_, 0);
     std::fill(topic_count_[0], topic_count_[0] + N_*K_, 0);
     std::fill(topic_term_[0], topic_term_[0] + K_*Nwords_, 0);
+    std::fill(topic_area_[0], topic_area_[0] + K_*3, 0);
 
     std::fill(topic_numeric_count_[0], topic_numeric_count_[0] + F_*K_, 0);
 
@@ -698,12 +718,14 @@ void lda::lda_collapsed::forward() {
     int* z = zi_[0];
     for (int i = 0; i != N_; ++i) {
         for (const sparse_int* j = words_[i]; j->value != -1; ++j) {
+            const int area = area_of(j->value);
             for (int cji = 0; cji != j->count; ++cji) {
                 const int k = R.random_int(0, K_);
                 *z++ = k;
                 ++topic_count_[i][k];
                 ++topic_term_[j->value][k];
                 ++topic_[k];
+                ++topic_area_[area][k];
             }
         }
         for (int f = 0; f != F_; ++f) {
