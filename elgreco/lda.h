@@ -16,6 +16,7 @@ struct lda_parameters {
     int nr_labels;
     floating alpha;
     floating beta;
+    std::vector<int> area_markers;
 };
 
 
@@ -215,6 +216,7 @@ struct lda_collapsed : lda_base {
             delete [] zi_;
             delete [] topic_;
 
+
             delete [] topic_area_[0];
             delete [] topic_area_;
 
@@ -248,7 +250,17 @@ struct lda_collapsed : lda_base {
         void update_gammas();
         void update_alpha_beta();
 
+        int area_of(int w) const {
+            if (area_markers_.empty()) return 0;
+            for (int a = 0; a != area_markers_.size(); ++a) {
+                if (w < area_markers_[a]) return a;
+            }
+            return area_markers_.size()-1;
+        }
+
         int** zi_;
+
+        std::vector<int> area_markers_;
 
         int* topic_;
         int** topic_count_;

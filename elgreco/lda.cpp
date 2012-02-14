@@ -171,11 +171,6 @@ floating phi(const double x) {
     return 1.-phi2(2.-x);
 }
 
-int area_of(int w) {
-    if (w < 256) return 0;
-    if (w < 512) return 1;
-    return 2;
-}
 }
 
 lda::lda_base::lda_base(lda_data& input, lda_parameters params)
@@ -288,7 +283,8 @@ lda::lda_uncollapsed::lda_uncollapsed(lda_data& words, lda_parameters params)
     }
 
 lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
-    :lda_base(words, params) {
+    :lda_base(words, params)
+    ,area_markers_(params.area_markers) {
         zi_ = new int*[N_+1];
         zi_[0] = new int[words.nr_words() + N_*F_];
         int* zinext = zi_[0];
@@ -303,6 +299,7 @@ lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
             zinext += F_;
             zi_[i+1] = zinext;
         }
+
         topic_ = new int[K_];
         topic_count_ = new int*[N_];
         topic_count_[0] = new int[N_*K_];
