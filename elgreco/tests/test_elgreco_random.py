@@ -1,4 +1,4 @@
-import elgreco_random
+from elgreco import elgreco_random
 
 def test_normal_params():
     params = elgreco_random.normal_params(0.,1.)
