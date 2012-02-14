@@ -195,9 +195,11 @@ lda::lda_base::lda_base(lda_data& input, lda_parameters params)
         }
         int Nitems = 0;
         for (int i = 0; i != input.nr_docs(); ++i) {
-            std::sort(input.at(i).begin(), input.at(i).end());
-            if (input.at(i).back() > Nwords_) Nwords_ = input.at(i).back();
-            Nitems += input.size(i);
+            if (!input.at(i).empty()) {
+                std::sort(input.at(i).begin(), input.at(i).end());
+                if (input.at(i).back() > Nwords_) Nwords_ = input.at(i).back();
+                Nitems += input.size(i);
+            }
         }
         words_ = new sparse_int*[N_];
         words_[0] = new sparse_int[Nitems+N_]; // this is actually an overestimate, but that's fine
