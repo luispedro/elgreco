@@ -20,8 +20,9 @@ lda_module = Extension(
                )
 
 random_module = Extension(
-                'elgreco.elgreco_random',
+                'elgreco._elgreco_random',
                 sources=['elgreco/elgreco_random.i'],
+                libraries=['gsl', 'gslcblas'],
                 swig_opts=['-c++'],
                 )
 
