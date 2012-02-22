@@ -1441,7 +1441,6 @@ void lda::lda_uncollapsed::sample_one(const std::vector<int>& words, const std::
     std::fill(thetas, thetas + K_, 1.);
 
     floating crossed[K_ * Nwords_];
-    floating offset[Nwords_];
     floating normals[F_][K_];
     const int docsize = words.size();
 
@@ -1452,7 +1451,6 @@ void lda::lda_uncollapsed::sample_one(const std::vector<int>& words, const std::
             crossed_j[k] = multinomials_[k][j];
             if (crossed_j[k] > max) max = crossed_j[k];
         }
-        offset[j] = max;
         for (int k = 0; k != K_; ++k) {
             crossed_j[k] = std::exp(crossed_j[k] - max);
         }

@@ -252,7 +252,7 @@ struct lda_collapsed : lda_base {
 
         int area_of(int w) const {
             if (area_markers_.empty()) return 0;
-            for (int a = 0; a != area_markers_.size(); ++a) {
+            for (unsigned a = 0; a != area_markers_.size(); ++a) {
                 if (w < area_markers_[a]) return a;
             }
             return area_markers_.size()-1;
