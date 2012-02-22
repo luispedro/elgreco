@@ -69,21 +69,32 @@ struct lda_base {
             delete [] ls_;
             delete [] gamma_;
         }
+        // One sampling step
         virtual void step() = 0;
+
+        // Forward sampling.
+        // This should be performed to initialize sampler to good values.
         virtual void forward() = 0;
+
+        // log likelihood of model
         virtual floating logP(bool normalise=false) const = 0;
+
         virtual int retrieve_theta(int i, float* res, int size) const = 0;
 
+        // Print is human readable
         virtual void print_topics(std::ostream&) const = 0;
         virtual void print_words(std::ostream&) const = 0;
 
+        // Model saving/loading is mostly human-unreadable
         virtual void save_model(std::ostream&) const = 0;
+        // Shortcut: saves to file
         void save_to(const char* fname) const {
             std::ofstream out(fname);
             save_model(out);
         }
 
         virtual void load_model(std::istream&) = 0;
+        // Shortcut: loads from file
         void load_from(const char* fname) {
             std::ifstream in(fname);
             load_model(in);
@@ -95,6 +106,8 @@ struct lda_base {
         int nr_labels() const { return L_; }
 
         int retrieve_gamma(int ell, float* res, int size) const;
+        // Returns strength of ell label for [array]
+        // (for supervised models only)
         float score_one(int ell, const float* array, int size) const;
 
     protected:
@@ -239,11 +252,15 @@ struct lda_collapsed : lda_base {
 
         int project_one(const std::vector<int>&, const std::vector<float>&, float* res, int size) const;
         virtual floating logperplexity(const std::vector<int>&, const std::vector<float>&) const;
+
         void print_topics(std::ostream&) const;
         void print_words(std::ostream&) const;
+
         void save_model(std::ostream&) const;
         void load_model(std::istream&);
 
+        // This function verifies a few invariants.
+        // It assert()s many things that should always be true
         void verify() const;
     private:
         void sample_one(const std::vector<int>&, const std::vector<float>&, std::vector<int>&, floating counts[]) const;
