@@ -286,7 +286,8 @@ lda::lda_uncollapsed::lda_uncollapsed(lda_data& words, lda_parameters params)
 
 lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
     :lda_base(words, params)
-    ,area_markers_(params.area_markers) {
+    ,area_markers_(params.area_markers)
+    ,nr_areas_(params.area_markers.size()+1) {
         zi_ = new int*[N_+1];
         zi_[0] = new int[words.nr_words() + N_*F_];
         int* zinext = zi_[0];
@@ -310,8 +311,8 @@ lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
         }
 
         topic_area_ = new int*[N_];
-        topic_area_[0] = new int[3*K_];
-        for (int a = 1; a != 3; ++a) {
+        topic_area_[0] = new int[nr_areas_*K_];
+        for (int a = 1; a != nr_areas_; ++a) {
             topic_area_[a] = topic_area_[a-1]+K_;
         }
 
@@ -677,7 +678,7 @@ void lda::lda_collapsed::verify() const {
     }
     for (int k = 0; k != K_; ++k) {
         int pa = 0;
-        for (int a = 0; a != 3; ++a) pa += topic_area_[a][k];
+        for (int a = 0; a != nr_areas_; ++a) pa += topic_area_[a][k];
         assert( pa == topic_[k]);
     }
 }
@@ -708,7 +709,7 @@ void lda::lda_collapsed::forward() {
     std::fill(topic_, topic_ + K_, 0);
     std::fill(topic_count_[0], topic_count_[0] + N_*K_, 0);
     std::fill(topic_term_[0], topic_term_[0] + K_*Nwords_, 0);
-    std::fill(topic_area_[0], topic_area_[0] + K_*3, 0);
+    std::fill(topic_area_[0], topic_area_[0] + K_*nr_areas_, 0);
 
     std::fill(topic_numeric_count_[0], topic_numeric_count_[0] + F_*K_, 0);
 

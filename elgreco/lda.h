@@ -268,16 +268,16 @@ struct lda_collapsed : lda_base {
         void update_alpha_beta();
 
         int area_of(int w) const {
-            if (area_markers_.empty()) return 0;
             for (unsigned a = 0; a != area_markers_.size(); ++a) {
                 if (w < area_markers_[a]) return a;
             }
-            return area_markers_.size()-1;
+            return area_markers_.size();
         }
 
         int** zi_;
 
         std::vector<int> area_markers_;
+        int nr_areas_;
 
         int* topic_;
         int** topic_count_;
