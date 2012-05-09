@@ -901,7 +901,7 @@ floating lda::lda_collapsed::logperplexity(const std::vector<int>& words, const 
     floating counts[K_];
     this->sample_one(words, fs, zs, counts);
 
-    floating logp = 0;
+    floating logp = logdirichlet_logP_uniform(counts, alpha_, K_, true);
     int nr_w[K_];
     std::fill(nr_w, nr_w + K_, 0);
     for (int j = 0; j != Nwords_; ++j) {
