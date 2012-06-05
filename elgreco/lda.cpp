@@ -20,7 +20,7 @@ namespace{
 floating dirichlet_logP(const floating* value, const floating* alphas, int dim, bool normalise=true) {
     floating res = 0;
     for (int i = 0; i != dim; ++i) {
-        if(alphas[i] && value[i] > 0.) res += alphas[i]*std::log(value[i]);
+        if(alphas[i] && value[i] > 0.) res += (alphas[i]-1)*std::log(value[i]);
     }
     if (normalise) {
         floating sumalphas = 0;
@@ -38,7 +38,7 @@ floating dirichlet_logP_uniform(const floating* value, const floating alpha, int
     for (int i = 0; i != dim; ++i) {
         if(value[i] > 0.) res += std::log(value[i]);
     }
-    res *= alpha;
+    res *= (alpha - 1);
     if (normalise) {
         res -= dim*gsl_sf_lngamma(alpha);
         res += gsl_sf_lngamma(dim* alpha);
@@ -51,7 +51,7 @@ floating logdirichlet_logP_uniform(const floating* value, const floating alpha, 
     for (int i = 0; i != dim; ++i) {
         res += value[i];
     }
-    res *= alpha;
+    res *= (alpha - 1);
     if (normalise) {
         res -= dim*gsl_sf_lngamma(alpha);
         res += gsl_sf_lngamma(dim* alpha);
@@ -899,9 +899,20 @@ floating lda::lda_collapsed::logperplexity(const std::vector<int>& words, const 
         )) return -2;
     std::vector<int> zs;
     floating counts[K_];
+    floating thetas[K_];
     this->sample_one(words, fs, zs, counts);
+    for (int k = 0; k != K_; ++k) {
+        thetas[k] = counts[k] + alpha_;
+        thetas[k] /= (words.size()+K_*alpha_);
+    }
+    floating logp = dirichlet_logP_uniform(thetas, alpha_, K_, true);
 
-    floating logp = logdirichlet_logP_uniform(counts, alpha_, K_, true);
+    for (int k = 0; k != K_; ++k) {
+        if (counts[k]) {
+            logp += counts[k] * (log(counts[k])-log(words.size()));
+        }
+    }
+
     int nr_w[K_];
     std::fill(nr_w, nr_w + K_, 0);
     for (int j = 0; j != Nwords_; ++j) {
