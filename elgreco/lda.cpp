@@ -158,6 +158,7 @@ floating dot_product(const F1* x, const F2* y, const int dim) {
 }
 
 floating phi2(const double x) {
+    // The values below were obtained by least squares fitting:
     const double x2 = x*x;
     const double x3 = x2*x;
     const double x4 = x2*x2;
