@@ -101,7 +101,7 @@ struct lda_base {
         }
 
         virtual int project_one(const std::vector<int>&, const std::vector<float>&, float* res, int size) const = 0;
-        virtual floating logperplexity(const std::vector<int>&, const std::vector<float>&) const = 0;
+        virtual floating logperplexity(const std::vector<int>& ws, const std::vector<float>& fs, const std::vector<float>& labels) const = 0;
         int nr_topics() const { return K_; }
         int nr_labels() const { return L_; }
 
@@ -190,7 +190,7 @@ struct lda_uncollapsed : lda_base {
         void nosample(int i) { sample_[i] = false; }
         void sample(int i) { sample_[i] = true; }
 
-        virtual floating logperplexity(const std::vector<int>&, const std::vector<float>& fs) const;
+        virtual floating logperplexity(const std::vector<int>& ws, const std::vector<float>& fs, const std::vector<float>& labels) const;
 
         void print_topics(std::ostream&) const;
         void print_words(std::ostream&) const;
@@ -251,7 +251,7 @@ struct lda_collapsed : lda_base {
         virtual int retrieve_theta(int i, float* res, int size) const;
 
         int project_one(const std::vector<int>&, const std::vector<float>&, float* res, int size) const;
-        virtual floating logperplexity(const std::vector<int>&, const std::vector<float>&) const;
+        virtual floating logperplexity(const std::vector<int>& ws, const std::vector<float>& fs, const std::vector<float>& labels) const;
 
         void print_topics(std::ostream&) const;
         void print_words(std::ostream&) const;

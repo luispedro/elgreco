@@ -12,9 +12,24 @@
 #include "lda.h"
 
 #include <gsl/gsl_linalg.h>
+#include <gsl/gsl_cdf.h>
 #include <gsl/gsl_sf.h>
 
 namespace{
+
+floating truncated_normal_like(const floating val, const floating label) {
+    if (label == 0) return 1;
+    if (label > 0) {
+        if (val > 0) {
+            return gsl_cdf_ugaussian_Q(-val);
+        }
+        return gsl_cdf_ugaussian_P(-val);
+    }
+    if (val > 0) {
+        return gsl_cdf_ugaussian_P(-val);
+    }
+    return gsl_cdf_ugaussian_Q(-val);
+}
 
 
 floating dirichlet_logP(const floating* value, const floating* alphas, int dim, bool normalise=true) {
@@ -892,8 +907,9 @@ floating lda::lda_uncollapsed::logP(bool normalise) const {
 
 
 
-floating lda::lda_collapsed::logperplexity(const std::vector<int>& words, const std::vector<float>& fs) const {
+floating lda::lda_collapsed::logperplexity(const std::vector<int>& words, const std::vector<float>& fs, const std::vector<float>& labels) const {
     if (int(fs.size()) != F_) return -1;
+    if (!(labels.empty() || int(labels.size()) == L_)) return -1;
     if (words.size() && (
         (*std::max_element(words.begin(), words.end()) >= Nwords_) ||
         (*std::min_element(words.begin(), words.end()) < 0)
@@ -909,9 +925,7 @@ floating lda::lda_collapsed::logperplexity(const std::vector<int>& words, const 
     floating logp = dirichlet_logP_uniform(thetas, alpha_, K_, true);
 
     for (int k = 0; k != K_; ++k) {
-        if (counts[k]) {
-            logp += counts[k] * (log(counts[k])-log(words.size()));
-        }
+        logp += counts[k] * log(thetas[k]);
     }
 
     int nr_w[K_];
@@ -929,6 +943,15 @@ floating lda::lda_collapsed::logperplexity(const std::vector<int>& words, const 
     }
     for (int f = 0; f != F_; ++f) {
         throw "This is not implemented.";
+    }
+    if (!labels.empty()) {
+        for (int ell = 0; ell != L_; ++ell) {
+            const floating* gl = gamma(ell);
+            const floating val = dot_product(gl, thetas, K_);
+            const floating p = truncated_normal_like(val, labels[ell]);
+            //std::cerr << "val: " << val << "\n\tp: " << p << "\tlog(p): " << std::log(p) << '\n';
+            logp += std::log(p);
+        }
     }
     return logp;
 }
@@ -1418,7 +1441,7 @@ float lda::lda_base::score_one(int ell, const float* res, int size) const {
     return dot_product(res, gamma(ell), size);
 }
 
-floating lda::lda_uncollapsed::logperplexity(const std::vector<int>& words, const std::vector<float>& fs) const {
+floating lda::lda_uncollapsed::logperplexity(const std::vector<int>& words, const std::vector<float>& fs, const std::vector<float>& labels) const {
     floating thetas[K_];
     this->sample_one(words, fs, thetas);
     floating crossed[K_ * Nwords_];
@@ -1444,6 +1467,10 @@ floating lda::lda_uncollapsed::logperplexity(const std::vector<int>& words, cons
             sum_k += thetas[k] * crossed_j[k];
         }
         logp += std::log(sum_k) + offset[j];
+    }
+
+    if (!labels.empty()) {
+        throw "labels not supported";
     }
     return logp;
 }
