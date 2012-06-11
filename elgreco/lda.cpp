@@ -203,6 +203,9 @@ lda::lda_base::lda_base(lda_data& input, lda_parameters params)
     ,Gn0_(1)
     ,Gmu_(0.)
     {
+        if (K_ <= 0) {
+            throw "elgreco.lda: K_ must be greater than zero";
+        }
         if (alpha_ <= 0) {
             throw "elgreco.lda: alpha must be strictly positive";
         }
