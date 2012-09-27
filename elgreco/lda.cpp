@@ -307,6 +307,9 @@ lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
     :lda_base(words, params)
     ,area_markers_(params.area_markers)
     ,nr_areas_(params.area_markers.size()+1) {
+        if (Nwords_ > area_markers_.back()) {
+            throw "Nwords_ > area_markers_.back()";
+        }
         zi_ = new int*[N_+1];
         zi_[0] = new int[words.nr_words() + N_*F_];
         int* zinext = zi_[0];
