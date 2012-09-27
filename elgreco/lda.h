@@ -273,7 +273,10 @@ struct lda_collapsed : lda_base {
             }
             return area_markers_.size();
         }
-        int area_size(int a) const { return area_markers_.at(a+1)-area_markers_[a]; }
+        int area_size(int a) const {
+            if (a == 0) return area_markers_[0];
+            return area_markers_.at(a) - area_markers_[a-1];
+        }
 
         int** zi_;
 
