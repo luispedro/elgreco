@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-# Copyright (C) 2011, Luis Pedro Coelho <luis@luispedro.org>
+# Copyright (C) 2011-2012, Luis Pedro Coelho <luis@luispedro.org>
 
-from distutils.core import setup, Extension
+from setuptools import setup, Extension
 import os
 
 undef_macros=[]
@@ -31,4 +31,5 @@ setup (name = 'elgreco',
        author = 'Luis Pedro Coelho <luis@luispedro.org>',
        ext_modules = [lda_module, random_module],
        py_modules = ['elgreco.lda'],
+       test_suite = 'nose.collector',
        )
