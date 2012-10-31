@@ -4,6 +4,9 @@
     } catch (const char* msg) {
         PyErr_SetString(PyExc_RuntimeError, msg);
         return NULL;
+    } catch (std::string msg) {
+        PyErr_SetString(PyExc_RuntimeError, msg.c_str());
+        return NULL;
     }
 }
 
