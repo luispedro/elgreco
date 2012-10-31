@@ -3,6 +3,7 @@
 #include <numeric>
 #include <cstring>
 #include <limits>
+#include <sstream>
 #include <assert.h>
 #include <boost/scoped_array.hpp>
 #include <boost/scoped_ptr.hpp>
@@ -198,6 +199,7 @@ lda::lda_base::lda_base(lda_data& input, lda_parameters params)
     ,Nwords_(input.nr_terms())
     ,alpha_(params.alpha)
     ,beta_(params.beta)
+    ,lambda_(params.lam)
     ,Ga_(1)
     ,Gb_(1)
     ,Gn0_(1)
@@ -208,6 +210,9 @@ lda::lda_base::lda_base(lda_data& input, lda_parameters params)
         }
         if (alpha_ <= 0) {
             throw "elgreco.lda: alpha must be strictly positive";
+        }
+        if (lambda_ <= 0) {
+            throw "elgreco.lda: lambda must be strictly positive";
         }
         if (beta_ <= 0) {
             throw "elgreco.lda: beta must be strictly positive";
@@ -794,7 +799,6 @@ void lda::lda_collapsed::update_gammas() {
 
     const floating sq_tpi = 0.3989422804014327; // sqrt(1/2./pi)
     const bool using_l2_penalty = false;
-    const floating lambda = -1./8.;
     for (int i = 0; i != N_; ++i) {
         const floating* li = ls(i);
         floating zi[K_];
@@ -832,11 +836,11 @@ void lda::lda_collapsed::update_gammas() {
         double* H = Hdata.get() + ell*K_*K_;
         for (int k = 0; k != K_; ++k) {
             if (using_l2_penalty) {
-                g[k] += 2*lambda*gl[k];
-                H[k*K_+k] += 2*lambda;
+                g[k] += -2*lambda_*gl[k];
+                H[k*K_+k] += -2*lambda_;
             } else {
-                if (gl[k] < 0) g[k] -= lambda;
-                else if (gl[k] > 0) g[k] += lambda;
+                if (gl[k] < 0) g[k] += lambda_;
+                else if (gl[k] > 0) g[k] -= lambda_;
             }
         }
 
@@ -1057,6 +1061,7 @@ void lda::lda_uncollapsed::save_model(std::ostream& out) const {
     out << Nwords_ << endl;
     out << alpha_ << endl;
     out << beta_ << endl;
+    out << lambda_ << endl;
     out << Ga_ << endl;
     out << Gb_ << endl;
     out << Gn0_ << endl;
@@ -1130,6 +1135,7 @@ void lda::lda_uncollapsed::load_model(std::istream& in) {
     CHECK(int, Nwords_);
     CHECK(floating, alpha_);
     CHECK(floating, beta_);
+    CHECK(floating, lambda_);
     CHECK(floating, Ga_);
     CHECK(floating, Gb_);
     CHECK(floating, Gn0_);
@@ -1202,10 +1208,18 @@ void lda::lda_collapsed::save_model(std::ostream& out) const {
     out << Nwords_ << endl;
     out << alpha_ << endl;
     out << beta_ << endl;
+    out << lambda_ << endl;
     out << Ga_ << endl;
     out << Gb_ << endl;
     out << Gn0_ << endl;
     out << Gmu_ << endl;
+    out << endl;
+    out << endl;
+    out << area_markers_.size();
+    for (int a = 0; a != area_markers_.size(); ++a) {
+        out << ' ' << area_markers_[a];
+    }
+    out << endl;
     out << endl;
     out << endl;
     for (int i = 0; i != N_; ++i) {
@@ -1227,27 +1241,37 @@ void lda::lda_collapsed::save_model(std::ostream& out) const {
 }
 
 template<typename T>
-void check_value(std::istream& in, const T val) {
+void check_value(std::istream& in, const T val, const char* what = "") {
     T t;
     in >> t;
     if (val != t) {
-        throw "Check failed: value is not what is expected\n";
+        std::ostringstream out;
+        out << "Loading check for '" << what << "' failed (expected " << val << ", got " << t << ").";
+        throw out.str();
     }
 }
 
 void lda::lda_collapsed::load_model(std::istream& in) {
-    check_value<int>(in, N_);
-    check_value<int>(in, K_);
-    check_value<int>(in, F_);
-    check_value<int>(in, L_);
-    check_value<int>(in, Nwords_);
+    check_value<int>(in, N_, "N");
+    check_value<int>(in, K_, "K");
+    check_value<int>(in, F_, "F");
+    check_value<int>(in, L_, "L");
+    check_value<int>(in, Nwords_, "Nwords");
 
-    check_value<floating>(in, alpha_);
-    check_value<floating>(in, beta_);
-    check_value<floating>(in, Ga_);
-    check_value<floating>(in, Gb_);
-    check_value<floating>(in, Gn0_);
-    check_value<floating>(in, Gmu_);
+    check_value<floating>(in, alpha_, "a");
+    check_value<floating>(in, beta_, "b");
+    check_value<floating>(in, lambda_, "lambda");
+    check_value<floating>(in, Ga_, "Ga");
+    check_value<floating>(in, Gb_, "Gb");
+    check_value<floating>(in, Gn0_, "Gno");
+    check_value<floating>(in, Gmu_, "Gmu");
+
+    int areas;
+    in >> areas;
+    if (areas <= 0) throw "Need at least one area!";
+    area_markers_.resize(areas);
+    for (int a = 0; a != areas; ++a) in >> area_markers_[a];
+
 
     std::fill(topic_, topic_ + K_, 0);
     std::fill(topic_count_[0], topic_count_[0] + N_*K_, 0);

@@ -16,6 +16,7 @@ struct lda_parameters {
     int nr_labels;
     floating alpha;
     floating beta;
+    floating lam;
     std::vector<int> area_markers;
 };
 
@@ -144,6 +145,7 @@ struct lda_base {
 
         floating alpha_;
         floating beta_;
+        floating lambda_;
 
         floating Ga_;
         floating Gb_;
