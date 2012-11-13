@@ -363,14 +363,15 @@ void lda::lda_collapsed::step() {
     floating zb_gamma[L_];
     for (int i = 0; i != N_; ++i) {
         floating z_bar[K_];
-        std::fill(z_bar, z_bar + K_, 0);
-        const int Ni = size(i);
-        for (int d = 0; d != Ni; ++d) {
-            ++z_bar[z[d]];
+        const floating Ni = size(i);
+        for (int k = 0; k != K_; ++k) {
+            z_bar[k] = topic_count_[i][k] / floating(Ni);
         }
-        for (int k = 0; k != K_; ++k) z_bar[k] /= Ni;
         for (int ell = 0; ell != L_; ++ell) {
             zb_gamma[ell] = dot_product(z_bar, gamma(ell), K_);
+        }
+        for (int k = 0; k != K_; ++k) {
+            topic_[k] -= topic_count_[i][k];
         }
 
         for (const sparse_int* j = words_[i]; j->value != -1; ++j) {
@@ -379,7 +380,6 @@ void lda::lda_collapsed::step() {
                 floating p[K_];
                 const int ok = *z;
                 --topic_count_[i][ok];
-                --topic_[ok];
                 --topic_area_[area][ok];
                 --topic_term_[j->value][ok];
                 for (int k = 0; k != K_; ++k) {
@@ -402,7 +402,6 @@ void lda::lda_collapsed::step() {
 
                 *z++ = k;
                 ++topic_count_[i][k];
-                ++topic_[k];
                 ++topic_area_[area][k];
                 ++topic_term_[j->value][k];
                 for (int ell = 0; ell != L_; ++ell) {
@@ -411,6 +410,9 @@ void lda::lda_collapsed::step() {
                     zb_gamma[ell] += gl[k]/Ni;
                 }
             }
+        }
+        for (int k = 0; k != K_; ++k) {
+            topic_[k] += topic_count_[i][k];
         }
         for (int f = 0; f != F_; ++f) {
             const floating fv = features_[i][f];
