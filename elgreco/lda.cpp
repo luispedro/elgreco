@@ -391,10 +391,8 @@ void lda::lda_collapsed::step() {
                 --topic_area_[area][ok];
                 --topic_term_[j->value][ok];
                 for (int k = 0; k != K_; ++k) {
-                    p[k] = (topic_term_[j->value][k] + beta_)/
-                                (topic_area_[area][k] + beta_) *
-                        (topic_count_[i][k] + alpha_)/
-                                (size(i) + alpha_ - 1);
+                    p[k] = ((topic_term_[j->value][k] + beta_) * (topic_count_[i][k] + alpha_)) /
+                            ((topic_area_[area][k] + beta_) * (Ni + alpha_ - 1));
                     const floating* li = ls(i);
                     for (int ell = 0; ell != L_; ++ell) {
                         if (li[ell]) {
