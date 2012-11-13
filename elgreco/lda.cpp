@@ -187,6 +187,14 @@ floating phi(const double x) {
     if (x < 0.) return phi2(2+x);
     return 1.-phi2(2.-x);
 }
+bool has_diagonal_zero(gsl_matrix* mat, const int n) {
+    for (int i = 0; i != n; ++i) {
+        if (gsl_matrix_get(mat, i, i) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
 
 }
 
@@ -790,24 +798,26 @@ void lda::lda_collapsed::update_alpha_beta() {
 
 
 void lda::lda_collapsed::update_gammas() {
+    // This is performing a Newton-Raphson step
+    // We perform a single step per iteration
     if (!L_) return;
     using boost::scoped_array;
     scoped_array<double> gdata(new double[L_*K_]);
     scoped_array<double> Hdata(new double[L_*K_*K_]);
-    scoped_array<double> ddata(new double[K_]);
 
     std::fill(gdata.get(), gdata.get() + L_*K_, 0.);
     std::fill(Hdata.get(), Hdata.get() + L_*K_*K_, 0.);
 
     const floating sq_tpi = 0.3989422804014327; // sqrt(1/2./pi)
     const bool using_l2_penalty = false;
+    const floating sigma2_over_1_plus_sigma2 = 8./9;
     for (int i = 0; i != N_; ++i) {
         const floating* li = ls(i);
         floating zi[K_];
         for (int k = 0; k != K_; ++k) {
-            // The factor of 8./9 is used below, but the code is somewhat simpler if
-            // we insert it here
-            zi[k] = (8./9)*(topic_count_[i][k] + alpha_)/(size(i) + K_*alpha_);
+            // The factor sigma2_over_1_plus_sigma2 is used below, but the code
+            // is somewhat simpler if we insert it here
+            zi[k] = sigma2_over_1_plus_sigma2*(topic_count_[i][k] + alpha_)/(size(i) + K_*alpha_);
         }
         for (int ell = 0; ell < L_; ++ell) {
             if (li[ell]) {
@@ -830,6 +840,7 @@ void lda::lda_collapsed::update_gammas() {
             }
         }
     }
+    scoped_array<double> ddata(new double[K_]);
     gsl_vector_view dvector = gsl_vector_view_array(ddata.get(), K_);
     gsl_permutation* permutation = gsl_permutation_alloc(K_);
     for (int ell = 0; ell != L_; ++ell) {
@@ -850,6 +861,7 @@ void lda::lda_collapsed::update_gammas() {
         gsl_vector_view gvector = gsl_vector_view_array(gdata.get() + ell*K_, K_);
         gsl_matrix_view Hmatrix = gsl_matrix_view_array(H, K_, K_);
         gsl_linalg_LU_decomp(&Hmatrix.matrix, permutation, &signum);
+        if (has_diagonal_zero(&Hmatrix.matrix, K_)) continue;
         gsl_linalg_LU_solve(&Hmatrix.matrix, permutation, &gvector.vector, &dvector.vector);
 
 
