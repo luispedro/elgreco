@@ -12,6 +12,7 @@ def test_lda_empty_doc():
     params = lda.lda_parameters()
     params.alpha = .01
     params.beta = .1
+    params.lam = .01
     params.nr_topics = 2
     params.nr_labels = 0
     params.seed = 2
