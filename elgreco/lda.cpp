@@ -390,6 +390,7 @@ void lda::lda_collapsed::step() {
                 --topic_count_[i][ok];
                 --topic_area_[area][ok];
                 --topic_term_[j->value][ok];
+                floating psum = 0;
                 for (int k = 0; k != K_; ++k) {
                     p[k] = ((topic_term_[j->value][k] + beta_) * (topic_count_[i][k] + alpha_)) /
                             ((topic_area_[area][k] + beta_) * (Ni + alpha_ - 1));
@@ -402,9 +403,16 @@ void lda::lda_collapsed::step() {
                             p[k] *= (.5);
                         }
                     }
+                    psum += p[k];
                     assert(!std::isnan(p[k]));
                 }
-                const int k = categorical_sample(R, p, K_);
+                p[K_-1] = psum + 1;
+                floating rsum = psum*R.uniform01();
+                int k = 0;
+                while (rsum > p[k]) {
+                    rsum -= p[k];
+                    ++k;
+                }
 
                 *z++ = k;
                 ++topic_count_[i][k];
