@@ -32,6 +32,8 @@ floating truncated_normal_like(const floating val, const floating label) {
     return gsl_cdf_ugaussian_Q(-val);
 }
 
+inline
+int roundi(floating x) { return int(round(x)); }
 
 floating dirichlet_logP(const floating* value, const floating* alphas, int dim, bool normalise=true) {
     floating res = 0;
@@ -338,27 +340,27 @@ lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
             zi_[i+1] = zinext;
         }
 
-        topic_ = new int[K_];
-        topic_count_ = new int*[N_];
-        topic_count_[0] = new int[N_*K_];
+        topic_ = new floating[K_];
+        topic_count_ = new floating*[N_];
+        topic_count_[0] = new floating[N_*K_];
         for (int m = 1; m != N_; ++m) {
             topic_count_[m] = topic_count_[m-1]+K_;
         }
 
-        topic_area_ = new int*[N_];
-        topic_area_[0] = new int[nr_areas_*K_];
+        topic_area_ = new floating*[N_];
+        topic_area_[0] = new floating[nr_areas_*K_];
         for (int a = 1; a != nr_areas_; ++a) {
             topic_area_[a] = topic_area_[a-1]+K_;
         }
 
-        topic_term_ = new int*[Nwords_];
-        topic_term_[0] = new int[Nwords_*K_];
+        topic_term_ = new floating*[Nwords_];
+        topic_term_[0] = new floating[Nwords_*K_];
         for (int t = 1; t != Nwords_; ++t) {
             topic_term_[t] = topic_term_[t-1] + K_;
         }
 
-        topic_numeric_count_ = new int*[F_];
-        topic_numeric_count_[0] = new int[F_*K_];
+        topic_numeric_count_ = new floating*[F_];
+        topic_numeric_count_[0] = new floating[F_*K_];
         for (int f = 1; f < F_; ++f) {
             topic_numeric_count_[f] = topic_numeric_count_[f-1] + K_;
         }
@@ -709,19 +711,19 @@ void lda::lda_collapsed::verify() const {
     }
     for (int k = 0; k != K_; ++k) {
         int cdocs = 0;
-        for (int i = 0; i != N_; ++i) cdocs += topic_count_[i][k];
+        for (int i = 0; i != N_; ++i) cdocs += roundi(topic_count_[i][k]);
 
         int wc = 0;
-        for (int j = 0; j != Nwords_; ++j) wc += topic_term_[j][k];
+        for (int j = 0; j != Nwords_; ++j) wc += roundi(topic_term_[j][k]);
 
         int fc = 0;
-        for (int f = 0; f != F_; ++f) fc += topic_numeric_count_[f][k];
+        for (int f = 0; f != F_; ++f) fc += roundi(topic_numeric_count_[f][k]);
 
         assert( cdocs == (wc + fc) );
     }
     for (int k = 0; k != K_; ++k) {
         int pa = 0;
-        for (int a = 0; a != nr_areas_; ++a) pa += topic_area_[a][k];
+        for (int a = 0; a != nr_areas_; ++a) pa += roundi(topic_area_[a][k]);
         assert( pa == topic_[k]);
     }
 }

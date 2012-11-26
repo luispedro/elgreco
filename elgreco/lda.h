@@ -285,11 +285,11 @@ struct lda_collapsed : lda_base {
         std::vector<int> area_markers_;
         int nr_areas_;
 
-        int* topic_;
-        int** topic_count_;
-        int** topic_area_;
-        int** topic_term_;
-        int** topic_numeric_count_;
+        floating* topic_;
+        floating** topic_count_;
+        floating** topic_area_;
+        floating** topic_term_;
+        floating** topic_numeric_count_;
 
         int size(int i) const { assert(i < N_); return zi_[i+1]-zi_[i]; }
 
