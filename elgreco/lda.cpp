@@ -401,9 +401,9 @@ void lda::lda_collapsed::step() {
                         if (li[ell]) {
                             const floating delta = gamma(ell)[k] - gamma(ell)[ok];
                             p[k] *= phi(li[ell] * (zb_gamma[ell]+delta/Ni));
-                        } else {
-                            p[k] *= (.5);
                         }
+                        // else p[k] *= (.5);
+                        // this is constant for every value of k, so we can leave it out
                     }
                     psum += p[k];
                     assert(!std::isnan(p[k]));
