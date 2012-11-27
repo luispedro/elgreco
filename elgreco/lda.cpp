@@ -151,6 +151,12 @@ void ps_to_cps(floating* ps, int dim) {
     assert(!std::isnan(ps[dim-1]));
 }
 
+inline
+bool all_zeros(const floating* start, const floating* past) {
+    while (start != past) if (*start++) return false;
+    return true;
+}
+
 int categorical_sample(random_source& R, const floating* ps, int dim) {
     if (dim == 1) return 0;
     floating cps[dim];
@@ -372,6 +378,8 @@ void lda::lda_collapsed::step() {
     int* z = zi_[0];
     floating zb_gamma[L_];
     for (int i = 0; i != N_; ++i) {
+        const floating* li = ls(i);
+        const bool has_any_label = !all_zeros(li, li + L_);
         floating z_bar[K_];
         const floating Ni = size(i);
         for (int k = 0; k != K_; ++k) {
@@ -396,14 +404,15 @@ void lda::lda_collapsed::step() {
                 for (int k = 0; k != K_; ++k) {
                     p[k] = ((topic_term_[j->value][k] + beta_) * (topic_count_[i][k] + alpha_)) /
                             ((topic_area_[area][k] + beta_) * (Ni + alpha_ - 1));
-                    const floating* li = ls(i);
-                    for (int ell = 0; ell != L_; ++ell) {
-                        if (li[ell]) {
-                            const floating delta = gamma(ell)[k] - gamma(ell)[ok];
-                            p[k] *= phi(li[ell] * (zb_gamma[ell]+delta/Ni));
+                    if (has_any_label) {
+                        for (int ell = 0; ell != L_; ++ell) {
+                            if (li[ell]) {
+                                const floating delta = gamma(ell)[k] - gamma(ell)[ok];
+                                p[k] *= phi(li[ell] * (zb_gamma[ell]+delta/Ni));
+                            }
+                            // else p[k] *= (.5);
+                            // this is constant for every value of k, so we can leave it out
                         }
-                        // else p[k] *= (.5);
-                        // this is constant for every value of k, so we can leave it out
                     }
                     psum += p[k];
                     assert(!std::isnan(p[k]));
@@ -420,10 +429,12 @@ void lda::lda_collapsed::step() {
                 ++topic_count_[i][k];
                 ++topic_area_[area][k];
                 ++topic_term_[j->value][k];
-                for (int ell = 0; ell != L_; ++ell) {
-                    const floating* gl = gamma(ell);
-                    zb_gamma[ell] -= gl[ok]/Ni;
-                    zb_gamma[ell] += gl[k]/Ni;
+                if (has_any_label) {
+                    for (int ell = 0; ell != L_; ++ell) {
+                        const floating* gl = gamma(ell);
+                        zb_gamma[ell] -= gl[ok]/Ni;
+                        zb_gamma[ell] += gl[k]/Ni;
+                    }
                 }
             }
         }
