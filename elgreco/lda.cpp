@@ -1267,7 +1267,7 @@ void lda::lda_collapsed::save_model(std::ostream& out) const {
     for (int ell = 0; ell != L_; ++ell) {
         const floating* gl = gamma(ell);
         for (int k = 0; k != K_; ++k) {
-            out << gl[k];
+            out << gl[k] << '\t';
         }
         out << endl;
     }
