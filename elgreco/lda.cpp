@@ -841,19 +841,31 @@ void lda::lda_collapsed::update_gammas() {
         for (int ell = 0; ell < L_; ++ell) {
             if (li[ell]) {
                 const floating f_g = li[ell]*dot_product(gamma(ell), zi, K_);
-                const floating phi0 = phi(f_g);
-                const floating phi1 = sq_tpi*std::exp(-f_g*f_g/2.);
-                const floating phi2 = -f_g*phi1;
-                const floating gfactor = phi1/phi0;
-                const floating hfactor = (phi2/phi0 - gfactor*gfactor);
+                if (std::abs(f_g) < 2) {
+                    const floating phi0 = phi(f_g);
+                    const floating phi1 = sq_tpi*std::exp(-f_g*f_g/2.);
+                    const floating phi2 = -f_g*phi1;
+                    const floating gfactor = phi1/phi0;
+                    const floating hfactor = phi2/phi0 - gfactor*gfactor;
 
-                double* g = gdata.get() + K_*ell;
-                double* H = Hdata.get() + K_*K_*ell;
+                    double* g = gdata.get() + K_*ell;
+                    double* H = Hdata.get() + K_*K_*ell;
 
-                for (int k = 0; k != K_; ++k) {
-                    g[k] += li[ell] * zi[k] * gfactor;
-                    for (int m = 0; m != K_; ++m) {
-                        H[k*K_+m] += zi[k]*zi[m]*hfactor;
+                    for (int k = 0; k != K_; ++k) {
+                        g[k] += li[ell] * zi[k] * gfactor;
+                        for (int m = 0; m != K_; ++m) {
+                            H[k*K_+m] += zi[k]*zi[m]*hfactor;
+                        }
+                    }
+                } else if ( f_g * li[ell] < 0) {
+                    const floating* gl = gamma(ell);
+                    double* g = gdata.get() + K_*ell;
+                    const floating penalty = 0.02;
+                    double* H = Hdata.get() + K_*K_*ell;
+
+                    for (int k = 0; k != K_; ++k) {
+                        if (gl[k] > 0) g[k] -= penalty;
+                        else g[k] += penalty;
                     }
                 }
             }
@@ -867,13 +879,16 @@ void lda::lda_collapsed::update_gammas() {
         double* g = gdata.get() + K_*ell;
         double* H = Hdata.get() + ell*K_*K_;
         for (int k = 0; k != K_; ++k) {
+            g[k] /= N_;
             if (using_l2_penalty) {
                 g[k] += -2*lambda_*gl[k];
                 H[k*K_+k] += -2*lambda_;
             } else {
-                if (gl[k] < 0) g[k] += lambda_;
-                else if (gl[k] > 0) g[k] -= lambda_;
+                if (gl[k] > 0) g[k] -= lambda_;
+                else g[k] += lambda_;
             }
+            // Avoid H ≈ 0, which leads to H⁻¹ too large
+            H[k*K_+k] += 1./K_;
         }
 
         int signum;
@@ -883,9 +898,16 @@ void lda::lda_collapsed::update_gammas() {
         if (has_diagonal_zero(&Hmatrix.matrix, K_)) continue;
         gsl_linalg_LU_solve(&Hmatrix.matrix, permutation, &gvector.vector, &dvector.vector);
 
+        floating factor = 1.0;
+        for (int k = 0; k != K_; ++k) {
+            if (std::abs(ddata[k]) > factor) factor = std::abs(ddata[k]);
+        }
+        for (int k = 0; k != K_; ++k) {
+            ddata[k] /= factor;
+        }
 
         for (int k = 0; k != K_; ++k) {
-            const double nval = gl[k] - ddata[k];
+            const double nval = gl[k] + ddata[k];
             if (using_l2_penalty) {
                 gl[k] = nval;
             } else {
