@@ -817,7 +817,7 @@ void lda::lda_collapsed::update_alpha_beta() {
 
 
 void lda::lda_collapsed::update_gammas() {
-    // This is performing a Newton-Raphson step
+    // This method performs a Newton-Raphson step with a little regularization
     // We perform a single step per iteration
     if (!L_) return;
     using boost::scoped_array;
@@ -887,7 +887,8 @@ void lda::lda_collapsed::update_gammas() {
                 if (gl[k] > 0) g[k] -= lambda_;
                 else g[k] += lambda_;
             }
-            // Avoid H ≈ 0, which leads to H⁻¹ too large
+            // We add a constant 1/k to the diagonal of H to avoid H ≈ 0, which
+            // leads to H⁻¹ too large
             H[k*K_+k] += 1./K_;
         }
 
@@ -898,6 +899,9 @@ void lda::lda_collapsed::update_gammas() {
         if (has_diagonal_zero(&Hmatrix.matrix, K_)) continue;
         gsl_linalg_LU_solve(&Hmatrix.matrix, permutation, &gvector.vector, &dvector.vector);
 
+        // This is a hack, but it avoids some unstable behaviour when very
+        // large steps were being taken and then wound down. The maximum step
+        // is of size 1, in any direction.
         floating factor = 1.0;
         for (int k = 0; k != K_; ++k) {
             if (std::abs(ddata[k]) > factor) factor = std::abs(ddata[k]);
