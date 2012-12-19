@@ -1007,8 +1007,8 @@ floating lda::lda_collapsed::logperplexity(const std::vector<int>& words, const 
             const floating* gl = gamma(ell);
             const floating val = dot_product(gl, thetas, K_);
             const floating p = truncated_normal_like(val, labels[ell]);
-            //std::cerr << "val: " << val << "\n\tp: " << p << "\tlog(p): " << std::log(p) << '\n';
-            logp += std::log(p);
+            if (p > 1e-17) logp += std::log(p);
+            else logp += -39.1; // -39.1 ≈ log(1e-17)
         }
     }
     return logp;
