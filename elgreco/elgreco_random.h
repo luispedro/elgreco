@@ -78,6 +78,12 @@ floating normal_like(const floating value, const normal_params& params, bool nor
 }
 
 inline
+floating normal_logp(const floating value, const normal_params& params, const bool normalise=true) {
+    const floating d = (value - params.mu) * params.precision;
+    return -d*d + std::log(params.precision) + (normalise ? std::log(_inv_two_pi) : 0.0);
+}
+
+inline
 normal_params normal_gamma(random_source& R, const floating mu0, const floating kappa0, const floating alpha, const floating beta) {
     assert(beta != 0.);
     const floating tao = R.gamma(alpha, 1./beta);
