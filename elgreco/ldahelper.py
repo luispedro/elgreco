@@ -1,4 +1,4 @@
-from lda import lda_parameters, lda_data
+from lda import lda_parameters, lda_data, lda_collapsed
 class lda_parameters_py(object):
     def __init__(self, p):
         self.seed = p.seed
@@ -37,4 +37,17 @@ class lda_data_py(object):
         for nd,nf,nl in self.docs:
             r.push_back_doc(nd,nf,nl)
         return r
+
+class lda_sampler_py(object):
+    def __init__(self, s):
+        from lda import save_model_to_string
+        self.data = lda_data_py(s.get_data())
+        self.parameters = lda_parameters_py(s.get_parameters())
+        self.state = save_model_to_string(s)
+
+    def get(self):
+        from lda import load_model_from_string
+        s = lda_collapsed(self.data.get(), self.parameters.get())
+        load_model_from_string(s, self.state)
+        return s
 
