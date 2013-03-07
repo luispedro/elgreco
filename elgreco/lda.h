@@ -46,9 +46,13 @@ struct lda_data {
         int size(int d) const { return docs_[d].size(); }
         int operator()(int d, int w) const { return docs_.at(d).at(w); }
         int nr_terms() const { return nr_terms_; }
+
+        std::vector<floating>& features_at(int d) { return features_.at(d); }
         floating feature(int d, int w) const { return features_[d][w]; }
         int nr_features() const { return features_[0].size(); }
 
+        std::vector<floating>& labels_at(int d) { return labels_.at(d); }
+        int nr_labels() const { assert(!labels_.empty()); return labels_[0].size(); }
         floating label(int d, int ell) const { return labels_[d][ell]; }
     private:
         std::vector< std::vector<int> > docs_;
