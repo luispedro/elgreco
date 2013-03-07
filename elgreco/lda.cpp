@@ -8,7 +8,7 @@
 #include <boost/scoped_array.hpp>
 #include <boost/scoped_ptr.hpp>
 
-#include <omp.h>
+// #include <omp.h>
 
 #include "lda.h"
 
@@ -1604,6 +1604,41 @@ void lda::lda_uncollapsed::sample_one(const std::vector<int>& words, const std::
         }
         dirichlet_sample(R2, thetas, proposal, K_);
     }
+}
+
+lda::lda_data lda::lda_collapsed::get_data() const {
+    lda::lda_data res;
+    for (int i = 0; i != N_; ++i) {
+        std::vector<int> nd;
+        for (const sparse_int* j = words_[i]; j->value != -1; ++j) {
+            for (int cji = 0; cji != j->count; ++cji) {
+                nd.push_back(j->value);
+            }
+        }
+
+        std::vector<floating> nf;
+        for (int f = 0; f < F_; ++f) {
+            nf.push_back(features_[i][f]);
+        }
+
+        std::vector<floating> nl;
+        const floating* li = ls(i);
+        nl.resize(L_);
+        std::copy(li, li + L_, nl.begin());
+        res.push_back_doc(nd, nf, nl);
+    }
+    return res;
+}
+lda::lda_parameters lda::lda_collapsed::get_parameters() const {
+    lda_parameters p;
+    p.seed = R.get();
+    p.nr_topics = K_;
+    p.nr_labels = L_;
+    p.alpha = alpha_;
+    p.beta = beta_;
+    p.lam = lambda_;
+    p.area_markers = area_markers_;
+    return p;
 }
 
 void lda::lda_uncollapsed::load(std::istream& topics, std::istream& words) {

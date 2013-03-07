@@ -112,7 +112,7 @@ struct lda_base {
         float score_one(int ell, const float* array, int size) const;
 
     protected:
-        random_source R;
+        mutable random_source R;
         int K_;
         int N_;
         int F_;
@@ -260,6 +260,9 @@ struct lda_collapsed : lda_base {
 
         void save_model(std::ostream&) const;
         void load_model(std::istream&);
+
+        lda_data get_data() const;
+        lda_parameters get_parameters() const;
 
         // This function verifies a few invariants.
         // It assert()s many things that should always be true

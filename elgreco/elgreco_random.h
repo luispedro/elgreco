@@ -52,6 +52,9 @@ struct random_source {
     int random_int(int a, int b) {
         return int(gsl_ran_flat(r, double(a),double(b)));
     }
+    int get() {
+        return int(gsl_rng_get(r));
+    }
     private:
        gsl_rng * r;
 };
