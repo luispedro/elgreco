@@ -1004,7 +1004,22 @@ floating lda::lda_collapsed::logperplexity(const std::vector<int>& words, const 
         logp += log(floating(topic_term_[w][k] + beta_)/(topic_area_[a][k] + area_size(a)*beta_));
     }
     for (int f = 0; f != F_; ++f) {
-        throw "This is not implemented.";
+        const floating* sf = sum_f(f);
+        const floating* sf2 = sum_f2(f);
+        assert(f + words.size() < zs.size());
+        const int k = zs[f+words.size()];
+
+        const floating n = topic_numeric_count_[f][k];
+        const floating n_prime = Gn0_ + n;
+        const floating f_bar = sf[k]/n_prime;
+        const floating f2_bar = sf2[k]/n_prime;
+
+        floating p = 0.;
+        for (int k = 0; k != K_; ++k) {
+            const floating pk = thetas[k];
+            p += pk * normal_like(fs[f], normal_params(f_bar, 1./f2_bar));
+        }
+        logp += std::log(p);
     }
     if (!labels.empty()) {
         for (int ell = 0; ell != L_; ++ell) {
