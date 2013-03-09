@@ -231,24 +231,6 @@ struct lda_collapsed : lda_base {
     public:
         lda_collapsed(lda_data& data, lda_parameters params);
         ~lda_collapsed() {
-            delete [] zi_[0];
-            delete [] zi_;
-            delete [] topic_;
-
-
-            delete [] topic_area_[0];
-            delete [] topic_area_;
-
-            delete [] topic_count_[0];
-            delete [] topic_count_;
-
-            delete [] topic_term_[0];
-            delete [] topic_term_;
-
-            delete [] topic_numeric_count_[0];
-            delete [] topic_numeric_count_;
-            delete [] sum_f_;
-            delete [] sum_f2_;
         }
         virtual void step();
         virtual void forward();
@@ -287,27 +269,43 @@ struct lda_collapsed : lda_base {
             return area_markers_.at(a) - area_markers_[a-1];
         }
 
-        int** zi_;
+        typedef std::vector<int>::iterator vint_iter;
+        typedef std::vector<floating>::iterator vfloating_iter;
+        typedef std::vector<floating>::const_iterator vfloating_c_iter;
+
+        std::vector<int> zidata_;
+        std::vector<vint_iter> zi_;
 
         std::vector<int> area_markers_;
         int nr_areas_;
 
-        floating* topic_;
-        floating** topic_count_;
-        floating** topic_area_;
-        floating** topic_term_;
-        floating** topic_numeric_count_;
+        std::vector<floating> topic_;
+        std::vector<floating> topic_count_data_;
+        vfloating_iter topic_count(const int i) { return topic_count_data_.begin() + i *K_; }
+        vfloating_c_iter topic_count(const int i) const { return topic_count_data_.begin() + i *K_; }
+
+        std::vector<floating> topic_area_data_;
+        vfloating_iter topic_area(const int a) { return topic_area_data_.begin() + a*K_; }
+        vfloating_c_iter topic_area(const int a) const { return topic_area_data_.begin() + a*K_; }
+
+        vfloating_iter topic_term(const int t) { return topic_term_data_.begin() + t*K_; }
+        vfloating_c_iter topic_term(const int t) const { return topic_term_data_.begin() + t*K_; }
+        std::vector<floating> topic_term_data_;
+
+        vfloating_iter topic_numeric_count(const int f) { return topic_numeric_count_data_.begin() + f*K_; }
+        vfloating_c_iter topic_numeric_count(const int f) const { return topic_numeric_count_data_.begin() + f*K_; }
+        std::vector<floating> topic_numeric_count_data_;
 
         int size(int i) const { assert(i < N_); return zi_[i+1]-zi_[i]; }
 
-        floating* sum_f(int f) { assert(f < F_); return sum_f_ + f*K_; }
-        const floating* sum_f(int f) const { assert(f < F_); return sum_f_ + f*K_; }
+        vfloating_iter sum_f(int f) { assert(f < F_); return sum_f_.begin() + f*K_; }
+        vfloating_c_iter sum_f(int f) const { assert(f < F_); return sum_f_.begin() + f*K_; }
 
-        floating* sum_f2(int f) { assert(f < F_); return sum_f2_ + f*K_; }
-        const floating* sum_f2(int f) const { assert(f < F_); return sum_f2_ + f*K_; }
+        vfloating_iter sum_f2(int f) { assert(f < F_); return sum_f2_.begin() + f*K_; }
+        vfloating_c_iter sum_f2(int f) const { assert(f < F_); return sum_f2_.begin() + f*K_; }
 
-        floating* sum_f_;
-        floating* sum_f2_;
+        std::vector<floating> sum_f_;
+        std::vector<floating> sum_f2_;
 };
 
 }
