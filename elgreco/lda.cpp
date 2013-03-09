@@ -438,9 +438,6 @@ void lda::lda_collapsed::step() {
                 }
             }
         }
-        for (int k = 0; k != K_; ++k) {
-            topic_[k] += topic_count_[i][k];
-        }
         for (int f = 0; f != F_; ++f) {
             const floating fv = features_[i][f];
             floating p[K_];
@@ -497,6 +494,9 @@ void lda::lda_collapsed::step() {
                 zb_gamma[ell] -= gl[ok]/Ni;
                 zb_gamma[ell] += gl[k]/Ni;
             }
+        }
+        for (int k = 0; k != K_; ++k) {
+            topic_[k] += topic_count_[i][k];
         }
     }
     this->update_gammas();
@@ -735,6 +735,7 @@ void lda::lda_collapsed::verify() const {
     for (int k = 0; k != K_; ++k) {
         int pa = 0;
         for (int a = 0; a != nr_areas_; ++a) pa += roundi(topic_area_[a][k]);
+        for (int f = 0; f != F_; ++f) pa += roundi(topic_numeric_count_[f][k]);
         assert( pa == topic_[k]);
     }
 }
@@ -1350,6 +1351,7 @@ void lda::lda_collapsed::load_model(std::istream& in) {
     std::fill(topic_, topic_ + K_, 0);
     std::fill(topic_count_[0], topic_count_[0] + N_*K_, 0);
     std::fill(topic_term_[0], topic_term_[0] + K_*Nwords_, 0);
+    std::fill(topic_area_[0], topic_area_[0] + N_*area_markers_.size(), 0);
 
     std::fill(topic_numeric_count_[0], topic_numeric_count_[0] + F_*K_, 0);
 
@@ -1361,12 +1363,14 @@ void lda::lda_collapsed::load_model(std::istream& in) {
         check_value<int>(in, Ni);
         int* z = zi_[i];
         for (const sparse_int* j = words_[i]; j->value != -1; ++j) {
+            const int area = area_of(j->value);
             for (int cj = 0; cj != j->count; ++cj) {
                 int k;
                 in >> k;
                 *z++ = k;
                 ++topic_[k];
                 ++topic_count_[i][k];
+                ++topic_area_[area][k];
                 ++topic_term_[j->value][k];
             }
         }
@@ -1376,6 +1380,7 @@ void lda::lda_collapsed::load_model(std::istream& in) {
             in >> k;
             *z++ = k;
             ++topic_[k];
+            ++topic_count_[i][k];
             ++topic_numeric_count_[f][k];
             sum_f(f)[k] += fv;
             sum_f2(f)[k] += fv*fv;
@@ -1388,6 +1393,7 @@ void lda::lda_collapsed::load_model(std::istream& in) {
         }
     }
 
+    this->verify();
 }
 
 
