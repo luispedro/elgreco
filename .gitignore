@@ -2,3 +2,4 @@
 build/
 elgreco/*_wrap.cpp
 /elgreco.egg-info/
+/dist/
