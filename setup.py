@@ -4,9 +4,14 @@
 from setuptools import setup, Extension
 import os
 
-undef_macros=[]
+undef_macros = []
+define_macros = []
 if os.environ.get('DEBUG'):
-    undef_macros=['NDEBUG']
+    undef_macros = ['NDEBUG']
+    if os.environ.get('DEBUG') == '2':
+        define_macros = [('_GLIBCXX_DEBUG','1')]
+
+
 execfile('elgreco/elgreco_version.py')
 
 lda_module = Extension(
@@ -16,12 +21,15 @@ lda_module = Extension(
                 extra_compile_args=['-fopenmp'],
                 extra_link_args=['-lgomp'],
                 undef_macros=undef_macros,
+                define_macros=define_macros,
                 swig_opts=['-c++'],
                )
 
 random_module = Extension(
                 'elgreco._elgreco_random',
                 sources=['elgreco/elgreco_random.i'],
+                undef_macros=undef_macros,
+                define_macros=define_macros,
                 libraries=['gsl', 'gslcblas'],
                 swig_opts=['-c++'],
                 )
@@ -30,6 +38,6 @@ setup (name = 'elgreco',
        version = __version__,
        author = 'Luis Pedro Coelho <luis@luispedro.org>',
        ext_modules = [lda_module, random_module],
-       py_modules = ['elgreco.lda'],
+       py_modules = ['elgreco.lda', 'elgreco.ldahelper'],
        test_suite = 'nose.collector',
        )
