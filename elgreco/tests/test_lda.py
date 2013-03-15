@@ -21,6 +21,7 @@ def test_lda_empty_doc():
     sampler.forward()
     logp = sampler.logP()
     assert logp < 0
+    assert sampler.nr_docs() == 5
 
 
 def test_save_load():

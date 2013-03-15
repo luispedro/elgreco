@@ -107,6 +107,7 @@ struct lda_base {
 
         virtual int project_one(const std::vector<int>&, const std::vector<float>&, float* res, int size) const = 0;
         virtual floating logperplexity(const std::vector<int>& ws, const std::vector<float>& fs, const std::vector<float>& labels) const = 0;
+        int nr_docs() const { return N_; }
         int nr_topics() const { return K_; }
         int nr_labels() const { return L_; }
 
