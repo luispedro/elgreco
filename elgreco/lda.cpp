@@ -1000,7 +1000,7 @@ floating lda::lda_collapsed::logperplexity(const std::vector<int>& words, const 
         floating p = 0.;
         for (int k = 0; k != K_; ++k) {
             const floating pk = thetas[k];
-            p += pk * normal_like(fs[f], normal_params(f_bar, 1./f2_bar));
+            p += pk * normal_like(fs[f], normal_params(f_bar, 1./(f2_bar + Ga_/Gb_)));
         }
         logp += std::log(p);
     }
