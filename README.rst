@@ -10,5 +10,4 @@ Dependencies
 
 ::
 
-    sudo apt-get install swig
-
+    sudo apt-get install swig libgsl0-dev
