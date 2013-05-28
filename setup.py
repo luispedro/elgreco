@@ -18,7 +18,7 @@ lda_module = Extension(
                 'elgreco._lda',
                 sources=['elgreco/lda.i', 'elgreco/lda.cpp', 'elgreco/load.cpp'],
                 libraries=['gsl', 'gslcblas'],
-                extra_compile_args=['-fopenmp'],
+                extra_compile_args=['-fopenmp', '-funsafe-math-optimizations', '-ffast-math'],
                 extra_link_args=['-lgomp'],
                 undef_macros=undef_macros,
                 define_macros=define_macros,
