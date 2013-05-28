@@ -158,11 +158,16 @@ bool all_zeros(const floating* start, const floating* past) {
 }
 
 int categorical_sample(random_source& R, const floating* ps, int dim) {
-    if (dim == 1) return 0;
-    floating cps[dim];
-    std::copy(ps, ps + dim, cps);
-    ps_to_cps(cps, dim);
-    return categorical_sample_cps(R, cps, dim);
+    floating psum = 0;
+    for (int i = 0; i < dim; ++i) psum += ps[i];
+    floating val = psum * R.uniform01();
+    int r = 0;
+    while (r < dim) {
+        if (val <= ps[r]) return r;
+        ++r;
+        val -= ps[r];
+    }
+    return dim-1;
 }
 
 int categorical_sample_logps(random_source& R, const floating* logps, int dim) {
