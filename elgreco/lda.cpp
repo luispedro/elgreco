@@ -164,8 +164,8 @@ int categorical_sample(random_source& R, const floating* ps, int dim) {
     int r = 0;
     while (r < dim) {
         if (val <= ps[r]) return r;
-        ++r;
         val -= ps[r];
+        ++r;
     }
     return dim-1;
 }
