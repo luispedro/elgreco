@@ -363,8 +363,11 @@ lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
     }
 
 void lda::lda_collapsed::step() {
-    vint_iter z = zi_[0];
     floating zb_gamma[L_];
+    floating p[K_];
+    #pragma omp parallel
+    {
+    vint_iter z = zi_[0];
     for (int i = 0; i != N_; ++i) {
         const floating* li = ls(i);
         const bool has_any_label = !all_zeros(li, li + L_);
@@ -373,23 +376,27 @@ void lda::lda_collapsed::step() {
         for (int k = 0; k != K_; ++k) {
             z_bar[k] = topic_count(i)[k] / floating(Ni);
         }
-        for (int ell = 0; ell != L_; ++ell) {
+        #pragma omp for
+        for (int ell = 0; ell < L_; ++ell) {
             zb_gamma[ell] = dot_product(z_bar, gamma(ell), K_);
         }
-        for (int k = 0; k != K_; ++k) {
+        #pragma omp for
+        for (int k = 0; k < K_; ++k) {
             topic_[k] -= topic_count(i)[k];
         }
 
         for (const sparse_int* j = words_[i]; j->value != -1; ++j) {
             const int area = area_of(j->value);
-            for (int cji = 0; cji != j->count; ++cji) {
-                floating p[K_];
+            for (int cji = 0; cji != j->count; ++cji, ++z) {
                 const int ok = *z;
-                --topic_count(i)[ok];
-                --topic_area(area)[ok];
-                --topic_term(j->value)[ok];
-                floating psum = 0;
-                for (int k = 0; k != K_; ++k) {
+                #pragma omp single
+                {
+                    --topic_count(i)[ok];
+                    --topic_area(area)[ok];
+                    --topic_term(j->value)[ok];
+                }
+                #pragma omp for schedule(static)
+                for (int k = 0; k < K_; ++k) {
                     p[k] = ((topic_term(j->value)[k] + beta_) * (topic_count(i)[k] + alpha_)) /
                             ((topic_area(area)[k] + beta_) * (Ni + alpha_ - 1));
                     if (has_any_label) {
@@ -402,41 +409,40 @@ void lda::lda_collapsed::step() {
                             // this is constant for every value of k, so we can leave it out
                         }
                     }
-                    psum += p[k];
                     assert(!std::isnan(p[k]));
                 }
-                p[K_-1] = psum + 1;
-                floating rsum = psum*R.uniform01();
-                int k = 0;
-                while (rsum > p[k]) {
-                    rsum -= p[k];
-                    ++k;
-                }
+                #pragma omp single
+                {
+                    const int k = categorical_sample(R, p, K_);
 
-                *z++ = k;
-                ++topic_count(i)[k];
-                ++topic_area(area)[k];
-                ++topic_term(j->value)[k];
-                if (has_any_label) {
-                    for (int ell = 0; ell != L_; ++ell) {
-                        const floating* gl = gamma(ell);
-                        zb_gamma[ell] -= gl[ok]/Ni;
-                        zb_gamma[ell] += gl[k]/Ni;
+                    *z = k;
+                    ++topic_count(i)[k];
+                    ++topic_area(area)[k];
+                    ++topic_term(j->value)[k];
+                    if (has_any_label) {
+                        for (int ell = 0; ell != L_; ++ell) {
+                            const floating* gl = gamma(ell);
+                            zb_gamma[ell] -= gl[ok]/Ni;
+                            zb_gamma[ell] += gl[k]/Ni;
+                        }
                     }
                 }
             }
         }
-        for (int f = 0; f != F_; ++f) {
+        for (int f = 0; f != F_; ++f, ++z) {
             const floating fv = features_[i][f];
-            floating p[K_];
-            const int ok = *z;
-            --topic_count(i)[ok];
-            --topic_numeric_count(f)[ok];
             vfloating_iter sf = sum_f(f);
             vfloating_iter sf2 = sum_f2(f);
-            sf[ok] -= fv;
-            sf2[ok] -= fv*fv;
-            for (int k = 0; k != K_; ++k) {
+            const int ok = *z;
+            #pragma omp single
+            {
+                --topic_count(i)[ok];
+                --topic_numeric_count(f)[ok];
+                sf[ok] -= fv;
+                sf2[ok] -= fv*fv;
+            }
+            #pragma omp for schedule(static)
+            for (int k = 0; k < K_; ++k) {
                 const floating n = topic_numeric_count(f)[k];
                 const floating n_prime = Gn0_ + n;
                 const floating f_bar = (n ? sf[k]/n : 0);
@@ -471,21 +477,26 @@ void lda::lda_collapsed::step() {
                 assert(!std::isnan(p[k]));
             }
 
-            const int k = categorical_sample_logps(R, p, K_);
-            *z++ = k;
-            ++topic_count(i)[k];
-            ++topic_numeric_count(f)[k];
-            sf[k] += fv;
-            sf2[k] += fv*fv;
-            for (int ell = 0; ell != L_; ++ell) {
-                const floating* gl = gamma(ell);
-                zb_gamma[ell] -= gl[ok]/Ni;
-                zb_gamma[ell] += gl[k]/Ni;
+            #pragma omp single
+            {
+                const int k = categorical_sample_logps(R, p, K_);
+                *z = k;
+                ++topic_count(i)[k];
+                ++topic_numeric_count(f)[k];
+                sf[k] += fv;
+                sf2[k] += fv*fv;
+                for (int ell = 0; ell != L_; ++ell) {
+                    const floating* gl = gamma(ell);
+                    zb_gamma[ell] -= gl[ok]/Ni;
+                    zb_gamma[ell] += gl[k]/Ni;
+                }
             }
         }
-        for (int k = 0; k != K_; ++k) {
+        #pragma omp for
+        for (int k = 0; k < K_; ++k) {
             topic_[k] += topic_count(i)[k];
         }
+    }
     }
     this->update_gammas();
     //this->update_alpha_beta();
