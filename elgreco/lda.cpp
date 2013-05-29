@@ -419,7 +419,7 @@ void lda::lda_collapsed::step() {
                     ++topic_count(i)[k];
                     ++topic_area(area)[k];
                     ++topic_term(j->value)[k];
-                    if (has_any_label) {
+                    if (has_any_label && (k != ok)) {
                         for (int ell = 0; ell != L_; ++ell) {
                             const floating* gl = gamma(ell);
                             zb_gamma[ell] -= gl[ok]/Ni;
