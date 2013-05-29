@@ -366,6 +366,7 @@ void lda::lda_collapsed::step() {
     floating zb_gamma[L_];
     floating p[K_];
     int prev_k0, prev_k1;
+    int z_skipped = 0;
     #pragma omp parallel
     {
     vint_iter z = zi_[0];
@@ -388,7 +389,7 @@ void lda::lda_collapsed::step() {
 
         for (const sparse_int* j = words_[i]; j->value != -1; ++j) {
             const int area = area_of(j->value);
-            for (int cji = 0; cji != j->count; ++cji, ++z) {
+            for (int cji = 0; cji < j->count; ++cji, ++z) {
                 const int ok = *z;
                 #pragma omp single
                 {
@@ -416,9 +417,17 @@ void lda::lda_collapsed::step() {
                 }
                 #pragma omp single
                 {
-                    const int k = categorical_sample(R, p, K_);
+                    int k;
+                    z_skipped = 0;
+                    while (true) {
+                        k = categorical_sample(R, p, K_);
+                        if ( (k != ok) || ((cji+z_skipped) == (j->count - 1)) || (z[z_skipped+1] != ok)) {
+                            break;
+                        }
+                        ++z_skipped;
+                    }
 
-                    *z = k;
+                    z[z_skipped] = k;
                     prev_k0 = k;
                     prev_k1 = ok;
                     ++topic_count(i)[k];
@@ -432,6 +441,8 @@ void lda::lda_collapsed::step() {
                         }
                     }
                 }
+                z += z_skipped;
+                cji += z_skipped;
             }
         }
         for (int f = 0; f != F_; ++f, ++z) {
