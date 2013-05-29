@@ -365,6 +365,7 @@ lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
 void lda::lda_collapsed::step() {
     floating zb_gamma[L_];
     floating p[K_];
+    int prev_k0, prev_k1;
     #pragma omp parallel
     {
     vint_iter z = zi_[0];
@@ -397,25 +398,29 @@ void lda::lda_collapsed::step() {
                 }
                 #pragma omp for schedule(static)
                 for (int k = 0; k < K_; ++k) {
-                    p[k] = ((topic_term(j->value)[k] + beta_) * (topic_count(i)[k] + alpha_)) /
-                            ((topic_area(area)[k] + beta_) * (Ni + alpha_ - 1));
-                    if (has_any_label) {
-                        for (int ell = 0; ell != L_; ++ell) {
-                            if (li[ell]) {
-                                const floating delta = gamma(ell)[k] - gamma(ell)[ok];
-                                p[k] *= phi(li[ell] * (zb_gamma[ell]+delta/Ni));
+                    if ((cji == 0) || (k == prev_k1) || (k == prev_k0) || (k == ok)) {
+                        p[k] = ((topic_term(j->value)[k] + beta_) * (topic_count(i)[k] + alpha_)) /
+                                ((topic_area(area)[k] + beta_) * (Ni + alpha_ - 1));
+                        if (has_any_label) {
+                            for (int ell = 0; ell != L_; ++ell) {
+                                if (li[ell]) {
+                                    const floating delta = gamma(ell)[k] - gamma(ell)[ok];
+                                    p[k] *= phi(li[ell] * (zb_gamma[ell]+delta/Ni));
+                                }
+                                // else p[k] *= (.5);
+                                // this is constant for every value of k, so we can leave it out
                             }
-                            // else p[k] *= (.5);
-                            // this is constant for every value of k, so we can leave it out
                         }
+                        assert(!std::isnan(p[k]));
                     }
-                    assert(!std::isnan(p[k]));
                 }
                 #pragma omp single
                 {
                     const int k = categorical_sample(R, p, K_);
 
                     *z = k;
+                    prev_k0 = k;
+                    prev_k1 = ok;
                     ++topic_count(i)[k];
                     ++topic_area(area)[k];
                     ++topic_term(j->value)[k];
