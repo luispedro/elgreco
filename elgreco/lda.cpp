@@ -399,21 +399,19 @@ void lda::lda_collapsed::step() {
                 }
                 #pragma omp for schedule(static)
                 for (int k = 0; k < K_; ++k) {
-                    if ((cji == 0) || (k == prev_k1) || (k == prev_k0) || (k == ok)) {
-                        p[k] = ((topic_term(j->value)[k] + beta_) * (topic_count(i)[k] + alpha_)) /
-                                ((topic_area(area)[k] + beta_) * (Ni + alpha_ - 1));
-                        if (has_any_label) {
-                            for (int ell = 0; ell != L_; ++ell) {
-                                if (li[ell]) {
-                                    const floating delta = gamma(ell)[k] - gamma(ell)[ok];
-                                    p[k] *= phi(li[ell] * (zb_gamma[ell]+delta/Ni));
-                                }
-                                // else p[k] *= (.5);
-                                // this is constant for every value of k, so we can leave it out
+                    p[k] = ((topic_term(j->value)[k] + beta_) * (topic_count(i)[k] + alpha_)) /
+                            ((topic_area(area)[k] + beta_) * (Ni + alpha_ - 1));
+                    if (has_any_label) {
+                        for (int ell = 0; ell != L_; ++ell) {
+                            if (li[ell]) {
+                                const floating delta = gamma(ell)[k] - gamma(ell)[ok];
+                                p[k] *= phi(li[ell] * (zb_gamma[ell]+delta/Ni));
                             }
+                            // else p[k] *= (.5);
+                            // this is constant for every value of k, so we can leave it out
                         }
-                        assert(!std::isnan(p[k]));
                     }
+                    assert(!std::isnan(p[k]));
                 }
                 #pragma omp single
                 {
@@ -428,8 +426,8 @@ void lda::lda_collapsed::step() {
                     }
 
                     z[z_skipped] = k;
-                    prev_k0 = k;
-                    prev_k1 = ok;
+                    prev_k0 = ok;
+                    prev_k1 = k;
                     ++topic_count(i)[k];
                     ++topic_area(area)[k];
                     ++topic_term(j->value)[k];
