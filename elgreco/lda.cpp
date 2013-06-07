@@ -365,7 +365,6 @@ lda::lda_collapsed::lda_collapsed(lda_data& words, lda_parameters params)
 void lda::lda_collapsed::step() {
     floating zb_gamma[L_];
     floating p[K_];
-    int prev_k0, prev_k1;
     int z_skipped = 0;
     #pragma omp parallel
     {
@@ -426,8 +425,6 @@ void lda::lda_collapsed::step() {
                     }
 
                     z[z_skipped] = k;
-                    prev_k0 = ok;
-                    prev_k1 = k;
                     ++topic_count(i)[k];
                     ++topic_area(area)[k];
                     ++topic_term(j->value)[k];
