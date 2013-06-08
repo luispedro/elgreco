@@ -987,19 +987,20 @@ floating lda::lda_uncollapsed::logP(bool normalise) const {
 
 
 floating lda::lda_collapsed::logperplexity(const std::vector<int>& words, const std::vector<float>& fs, const std::vector<float>& labels) const {
-    if (int(fs.size()) != F_) return -1;
-    if (!(labels.empty() || int(labels.size()) == L_)) return -1;
+    if (int(fs.size()) != F_) return 2;
+    if (!(labels.empty() || int(labels.size()) == L_)) return 3;
     if (words.size() && (
         (*std::max_element(words.begin(), words.end()) >= Nwords_) ||
         (*std::min_element(words.begin(), words.end()) < 0)
-        )) return -2;
+        )) return 4;
+
     std::vector<int> zs;
     floating counts[K_];
     floating thetas[K_];
     this->sample_one(words, fs, zs, counts);
+    const int Ni = zs.size();
     for (int k = 0; k != K_; ++k) {
-        thetas[k] = counts[k] + alpha_;
-        thetas[k] /= (words.size()+K_*alpha_);
+        thetas[k] = (counts[k]+alpha_)/(Ni + K_*alpha_);
     }
     floating logp = dirichlet_logP_uniform(thetas, alpha_, K_, true);
 
